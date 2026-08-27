@@ -138,6 +138,12 @@ end
 local function onServerCommand(module, command, args)
     if module ~= MODULE or command ~= "SpawnTestHordeResult" then return end
     args = args or {}
+
+    local player = getPlayer()
+    if not player or args.requester ~= player:getUsername() then
+        return
+    end
+
     if args.ok then
         print(string.format(
             "[ZombieFactions][%s] %s: spawned %s/%s as %s",
