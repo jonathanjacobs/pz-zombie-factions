@@ -1,0 +1,7 @@
+id=pz-zombie-factions
+name=Zombie Factions
+description=Research/pre-alpha Build 42 framework for assigning zombie factions and directional Friendly, Neutral, and Hostile relationships.
+author=Jonathan Jacobs
+category=features
+modversion=0.0.1
+versionMin=42.20.0
