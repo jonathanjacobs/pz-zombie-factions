@@ -10,7 +10,7 @@ local REL = ZombieFactions.Relationship
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.4")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.5")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -23,20 +23,64 @@ local function selectedData(combo)
     return option and option.data or nil
 end
 
-local function placeVanillaBottomButtons(self, spacing, buttonHeight)
+local function addHarnessBottomButtons(self, spacing, buttonHeight)
+    -- Do not depend on the vanilla bottom-button anchor lifecycle.  The original
+    -- buttons remain untouched; these diagnostic controls are created after the
+    -- final extended window height is known, so their coordinates are stable.
+    local x = 11
+    local gap = spacing
+    local buttonWidth = math.floor((self:getWidth() - (x * 2) - gap) / 2)
     local bottomY = self:getHeight() - spacing - buttonHeight - 1
     local upperY = bottomY - buttonHeight - spacing
+    local rightX = x + buttonWidth + gap
 
-    if self.add then self.add:setY(bottomY) end
-    if self.closeButton2 then self.closeButton2:setY(bottomY) end
-    if self.removezombies then self.removezombies:setY(upperY) end
-    if self.clearbodies then self.clearbodies:setY(upperY) end
+    self.zfRemoveZombiesButton = ISButton:new(
+        x, upperY, buttonWidth, buttonHeight,
+        getText("IGUI_SpawnHorde_RemoveZombies"),
+        self, ISSpawnHordeUI.onRemoveZombies
+    )
+    self.zfRemoveZombiesButton:initialise()
+    self.zfRemoveZombiesButton:instantiate()
+    self.zfRemoveZombiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
+    self.zfRemoveZombiesButton:setTooltip("Tip: Hold down Shift to remove all loaded zombies.")
+    self:addChild(self.zfRemoveZombiesButton)
+
+    self.zfRemoveBodiesButton = ISButton:new(
+        rightX, upperY, buttonWidth, buttonHeight,
+        getText("IGUI_SpawnHorde_RemoveBodies"),
+        self, ISSpawnHordeUI.onRemoveBodies
+    )
+    self.zfRemoveBodiesButton:initialise()
+    self.zfRemoveBodiesButton:instantiate()
+    self.zfRemoveBodiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
+    self:addChild(self.zfRemoveBodiesButton)
+
+    self.zfSpawnButton = ISButton:new(
+        x, bottomY, buttonWidth, buttonHeight,
+        getText("IGUI_StashDebug_Spawn"),
+        self, ISSpawnHordeUI.onSpawn
+    )
+    self.zfSpawnButton:initialise()
+    self.zfSpawnButton:instantiate()
+    self.zfSpawnButton.borderColor = {r=1, g=1, b=1, a=0.1}
+    self:addChild(self.zfSpawnButton)
+
+    self.zfCloseButton = ISButton:new(
+        rightX, bottomY, buttonWidth, buttonHeight,
+        getText("IGUI_DebugMenu_Close"),
+        self, ISSpawnHordeUI.close
+    )
+    self.zfCloseButton:initialise()
+    self.zfCloseButton:instantiate()
+    self.zfCloseButton:enableCancelColor()
+    self:addChild(self.zfCloseButton)
 
     print(string.format(
-        "[ZombieFactions][UI] windowHeight=%d spawnY=%d removeY=%d",
+        "[ZombieFactions][UI] windowHeight=%d harnessSpawnY=%d harnessRemoveY=%d buttonWidth=%d",
         math.floor(self:getHeight()),
         math.floor(bottomY),
-        math.floor(upperY)
+        math.floor(upperY),
+        math.floor(buttonWidth)
     ))
 end
 
@@ -50,9 +94,9 @@ function ISSpawnHordeUI:createChildren()
     local x = 11
     local y = self.healthSlider:getBottom() + spacing
 
-    -- Extend the vanilla window for the four diagnostic rows.  Do not rely on
-    -- anchorBottom to reposition existing controls after this late resize;
-    -- explicitly place the vanilla bottom button rows once the final height is set.
+    -- Extend the vanilla window for the four diagnostic rows.  The test harness
+    -- creates its own bottom controls after this resize instead of trying to
+    -- reposition the vanilla anchorBottom controls.
     self:setHeight(self:getHeight() + extraHeight)
 
     self.zfFactionLabel = ISLabel:new(x, y, rowHeight, "Zombie faction:", 1, 1, 1, 1, UIFont.Small, true)
@@ -90,7 +134,7 @@ function ISSpawnHordeUI:createChildren()
     self.zfSymmetric:addOption("Symmetric: mirror first relationship both ways")
     self.zfSymmetric.selected[1] = true
 
-    placeVanillaBottomButtons(self, spacing, rowHeight)
+    addHarnessBottomButtons(self, spacing, rowHeight)
 end
 
 local function buildFactionSpawnArgs(self, factionId)
