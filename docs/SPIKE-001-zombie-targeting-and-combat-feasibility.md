@@ -1,6 +1,6 @@
 # SPIKE-001 — Zombie Targeting and Combat Feasibility
 
-Status: Open — diagnostic harness implemented, runtime validation pending  
+Status: Open — Horde test UI loads; 0.0.2 layout defect fixed in 0.0.3; faction spawn validation pending  
 Target: Project Zomboid Build 42.20.x
 
 ## Question
@@ -26,7 +26,7 @@ Follow the complete path through:
 
 ## Diagnostic harness
 
-Version 0.0.2 implements the first test harness by extending the built-in Build 42 `ISSpawnHordeUI` admin window.
+Version 0.0.2 introduced the first test harness by extending the built-in Build 42 `ISSpawnHordeUI` admin window. Version 0.0.3 fixes the first runtime-discovered UI layout defect.
 
 Source inspection established that multiplayer Horde Spawning normally sends `/createhorde2`; the server command creates zombies through `addZombiesInOutfit(...)`. That API returns the created `IsoZombie` objects, allowing the harness to tag exact test subjects rather than find them later with a proximity scan.
 
@@ -40,7 +40,13 @@ The extended window adds:
 
 For `zf:vanilla`, the original Horde Spawning function is left unchanged. For a diagnostic faction, the client sends a namespaced Zombie Factions command to the server. The server rechecks `Capability.CreateHorde`, sets the directional relationship pair before spawning, uses `addZombiesInOutfit(...)`, assigns faction/test-run mod data to the exact returned zombie, and records a `SPIKE001-####` run ID.
 
-This implementation has not yet been executed against a live Build 42.20.x dedicated server. In particular, zombie mod-data persistence/replication remains an empirical validation item.
+### Runtime finding — 0.0.2
+
+The first enabled-mod dedicated-server test confirmed that the Zombie Factions controls rendered in the built-in Horde Spawning window, but the normal bottom buttons were no longer visible. The extension had enlarged the window and also manually shifted `add`, `closeButton2`, `removezombies`, and `clearbodies` downward.
+
+Build 42's vanilla `ISSpawnHordeUI` already declares those four controls with `anchorBottom = true`. Increasing the window height therefore moves them automatically. The additional manual shift moved them a second time and placed them below the visible window.
+
+Version 0.0.3 removes the manual repositioning and relies on the existing vanilla bottom anchors. It also adds explicit client/server startup diagnostic lines. The actual custom faction-spawn command has still not been runtime-validated because the 0.0.2 layout defect prevented the Spawn button from being clicked.
 
 ## First runtime test
 
@@ -49,7 +55,7 @@ Use a quiet open area and an observing admin who is invisible/god/debug as neede
 ### A — Harness smoke test
 
 1. Open the normal admin **Horde Spawning** tool.
-2. Confirm the new Zombie Factions controls appear below the vanilla health controls.
+2. Confirm the new Zombie Factions controls appear below the vanilla health controls and the normal Spawn/Remove/Close controls remain visible at the bottom.
 3. Leave `zf:vanilla` selected and spawn one zombie; confirm the ordinary vanilla path still works.
 4. Select `zf:test-red`, leave both relationships `FRIENDLY`, and spawn one zombie.
 5. Confirm the server log contains one bounded line with a `SPIKE001-####` run ID, requested/spawned counts, faction, and directional relationships.
@@ -73,7 +79,7 @@ Run the following in 1v1 conditions first:
 | Hostile | HOSTILE | HOSTILE | Intended future result: acquisition/pursuit/attack |
 | Directional | HOSTILE | FRIENDLY | Test faction may initiate; Vanilla must not independently initiate |
 
-At v0.0.2 the faction and relationship state exists, but no target-acquisition hook has yet been implemented. Therefore the current expected result for Hostile is still vanilla non-aggression between zombies. That negative control is useful: it confirms the harness itself is not accidentally changing AI behavior before the targeting work begins.
+At v0.0.3 the faction and relationship state exists, but no target-acquisition hook has yet been implemented. Therefore the current expected result for Hostile is still vanilla non-aggression between zombies. That negative control is useful: it confirms the harness itself is not accidentally changing AI behavior before the targeting work begins.
 
 ## Targeting acceptance probe
 
