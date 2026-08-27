@@ -6,7 +6,7 @@ Status: **Research / Pre-Alpha**
 Current version: **v0.0.1**  
 Target baseline: **Project Zomboid Build 42.20.x**
 
-## Current scope
+## Scope
 
 The first milestone is intentionally narrow:
 
@@ -15,24 +15,24 @@ The first milestone is intentionally narrow:
 - additional zombie factions can be registered;
 - relationships are directional;
 - relationship values are `FRIENDLY`, `NEUTRAL`, or `HOSTILE`;
-- zombie factions can define relationships toward other zombie factions, vanilla player factions, and unfactioned players;
-- installing the mod without defining custom factions must preserve vanilla zombie behavior.
+- relationships can target other zombie factions, Project Zomboid player factions, or unfactioned players;
+- default installation preserves vanilla zombie behavior.
 
-This repository currently establishes the data model, repository structure, design constraints, and research plan. It does **not** yet claim working zombie-vs-zombie combat. That capability depends on Build 42 target-acquisition, pathing, attack-state, hit-processing, and multiplayer behavior that is being validated before implementation.
+The repository currently contains the faction/relationship data model and research scaffolding. It does **not** yet claim working zombie-vs-zombie combat; Build 42 target acquisition, pursuit, attack, damage, and multiplayer behavior are being traced first.
 
-## Documentation
+## Project docs
 
-- [`docs/README.md`](docs/README.md) — documentation index.
-- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — normative MVP behavior.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — proposed technical design.
-- [`docs/TESTING.md`](docs/TESTING.md) — validation strategy.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — development roadmap.
-- [`docs/spikes/`](docs/spikes/) — implementation research.
-- [`docs/adr/`](docs/adr/) — architecture decisions.
-- [`COMPLIANCE.md`](COMPLIANCE.md) — Project Zomboid mod-policy compliance entry point.
+- [`docs/DESIGN.md`](docs/DESIGN.md) — behavior, architecture, validation criteria, and roadmap.
+- [`docs/SPIKE-001-zombie-targeting-and-combat-feasibility.md`](docs/SPIKE-001-zombie-targeting-and-combat-feasibility.md) — active Build 42 targeting/combat investigation.
+- [`COMPLIANCE.md`](COMPLIANCE.md) — Project Zomboid policy, provenance, and release constraints.
+- [`CHANGELOG.md`](CHANGELOG.md) — version history.
 
-## License and disclaimer
+## Runtime layout
 
-Original project source code is licensed under Apache License 2.0. Project Zomboid code and assets remain property of The Indie Stone and are not relicensed or redistributed by this repository.
+```text
+Contents/mods/pz-zombie-factions/
+```
+
+Original project source is licensed under Apache License 2.0. Project Zomboid code and assets remain property of The Indie Stone and are not redistributed or relicensed by this repository.
 
 Zombie Factions is an unofficial independent community mod and is not developed by, affiliated with, sponsored by, endorsed by, or otherwise official to The Indie Stone.
