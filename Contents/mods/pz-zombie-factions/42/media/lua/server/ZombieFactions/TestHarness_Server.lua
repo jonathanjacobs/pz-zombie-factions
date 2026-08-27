@@ -15,7 +15,8 @@ local function reply(player, ok, message, data)
     local payload = data or {}
     payload.ok = ok
     payload.message = message
-    sendServerCommand(player, MODULE, "SpawnTestHordeResult", payload)
+    payload.requester = player:getUsername()
+    sendServerCommand(MODULE, "SpawnTestHordeResult", payload)
 end
 
 local function hasCreateHordePermission(player)
