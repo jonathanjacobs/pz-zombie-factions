@@ -4,19 +4,7 @@ Status: Research / Pre-Alpha
 Version: 0.0.1  
 Target: Project Zomboid Build 42.20.x
 
-## Goal
-
-Add a small faction/diplomacy layer for zombies without replacing unrelated Project Zomboid AI systems.
-
-Every zombie resolves to exactly one zombie faction. Zombies without explicit assignment belong to the built-in `zf:vanilla` faction. Custom factions can define directional relationships toward other zombie factions, vanilla Project Zomboid player factions, and unfactioned players.
-
-The three relationship states are:
-
-- `FRIENDLY` — do not proactively target and do not retaliate solely because damage was received.
-- `NEUTRAL` — do not proactively target; retaliation may occur after direct aggression.
-- `HOSTILE` — may detect, select, pursue, and attack the target.
-
-Relationships are directional, so `A -> B` may differ from `B -> A`.
+Normative runtime behavior is defined in [`REQUIREMENTS.md`](REQUIREMENTS.md). This document describes the current implementation strategy and development sequence.
 
 ## Core API
 
@@ -29,24 +17,22 @@ canTarget(attacker, candidate)
 shouldRetaliate(attacker, aggressor)
 ```
 
-The initial shared Lua registry already establishes `zf:vanilla` plus the relationship constants and directional relationship lookup. Runtime targeting behavior is intentionally not implemented until the Build 42 targeting/combat spike is resolved.
+The initial shared Lua registry already establishes `zf:vanilla`, the three relationship constants, faction registration, and directional relationship lookup. Runtime targeting behavior is intentionally deferred until the Build 42 targeting/combat spike is resolved.
 
 ## Identity model
 
 Reserved identities:
 
-- `zf:vanilla` — default faction for unassigned zombies.
+- `zf:vanilla` — default zombie faction.
 - `zf:<id>` — custom zombie faction.
 - `pf:unfactioned` — player with no Project Zomboid faction.
 - `pf:<id>` — existing Project Zomboid player faction.
 
-Zombie Factions will use the game's existing player-faction system rather than create a second player-faction implementation.
+Zombie assignment should ultimately use persistent zombie-associated data rather than a transient Lua table keyed only by object instance.
 
-Faction assignment must eventually use zombie-associated persistent data that survives the relevant save/load and multiplayer lifecycle. A transient Lua table keyed only by object instance is not sufficient.
+## Targeting integration
 
-## Targeting architecture
-
-The preferred integration point is a target-eligibility decision at, or immediately before, vanilla target acquisition:
+Preferred flow:
 
 ```text
 candidate discovered
@@ -55,65 +41,39 @@ resolve attacker faction
         |
 resolve candidate faction
         |
-relationship == HOSTILE ? eligible : reject
+relationship policy
+        |
+eligible / reject
 ```
 
-A global per-tick scan that repeatedly clears `zombie:setTarget(nil)` is specifically disfavored. It risks target-reacquisition churn and scales work with the active zombie population.
+The preferred hook is at, or immediately before, vanilla target acquisition. Repeated global scanning and `setTarget(nil)` churn is a fallback of last resort.
 
-Zombie-vs-zombie combat is not assumed to work merely because `IsoZombie` can hold a generic moving-object target. Build 42 still needs to be traced through pursuit, attack state, hit processing, death handling, and multiplayer synchronization.
+## Zombie-vs-zombie feasibility
 
-## Multiplayer authority
+A generic target field does not prove the downstream AI supports zombie-on-zombie combat. The active spike must trace:
 
-Targeting, hostility, retaliation, and damage decisions that affect world state must be server-authoritative. Clients may mirror state for presentation or diagnostics but must not independently create divergent hostility decisions.
+1. candidate discovery and filtering;
+2. target assignment;
+3. pathing and pursuit;
+4. attack-state assumptions;
+5. hit/damage processing;
+6. death handling;
+7. multiplayer authority and synchronization.
 
-## Compatibility constraints
+That evidence determines whether the runtime can remain Lua-only or requires a deeper extension point.
 
-With no custom faction configuration:
+## Multiplayer model
 
-- ordinary zombies resolve to `zf:vanilla`;
-- vanilla zombies do not attack each other;
-- normal zombie hostility toward players is preserved;
-- the mod must not introduce full-world scans, target churn, network-command spam, or high-volume normal logging.
+Relationship configuration and world-changing combat decisions should be authoritative on the server. Clients should receive only the state needed for presentation, inspection, or bounded diagnostics.
 
-## Scope boundary
-
-Faction identity and diplomacy are separate from:
-
-- outfits and appearance;
-- spawn/population rules;
-- territory;
-- loot;
-- zombie stats or abilities;
-- NPC faction behavior.
-
-Those systems may consume the faction API later, but they are not part of the MVP.
-
-## Validation
-
-No feature is considered supported until observed in Build 42 runtime behavior.
-
-The minimum controlled test sequence is:
-
-1. confirm unassigned zombies resolve to `zf:vanilla`;
-2. assign a custom faction and verify persistence across relevant lifecycle transitions;
-3. verify directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationship resolution;
-4. confirm default installation preserves normal player targeting;
-5. test faction-aware player targeting;
-6. test hostile zombie-to-zombie acquisition, pursuit, attack, damage, and death;
-7. repeat authoritative behavior on a dedicated multiplayer server;
-8. test save/load and client reconnect;
-9. measure target-decision cost and confirm normal operation produces no command/log spam.
-
-If a stage fails, instrument that boundary rather than compensating with broad per-tick overrides.
-
-## Roadmap
+## Development sequence
 
 ### 0 — Foundation
 
 - [x] Build 42 repository layout
-- [x] faction/relationship data model
-- [x] minimal shared Lua registry
-- [x] targeting/combat research spike
+- [x] normative requirements
+- [x] minimal faction/relationship registry
+- [x] targeting/combat feasibility spike
 
 ### 1 — Engine feasibility
 
