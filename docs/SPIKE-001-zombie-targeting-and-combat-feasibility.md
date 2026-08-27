@@ -1,6 +1,6 @@
 # SPIKE-001 — Zombie Targeting and Combat Feasibility
 
-Status: Open — Horde test UI loads; v0.0.4 explicit button geometry awaiting runtime validation  
+Status: Open — Horde test UI loads; v0.0.5 independent bottom controls awaiting runtime validation  
 Target: Project Zomboid Build 42.20.x
 
 ## Question
@@ -26,7 +26,7 @@ Follow the complete path through:
 
 ## Diagnostic harness
 
-Version 0.0.2 introduced the first test harness by extending the built-in Build 42 `ISSpawnHordeUI` admin window. Versions 0.0.3 and 0.0.4 address runtime-discovered UI geometry defects before faction spawning itself can be validated.
+Version 0.0.2 introduced the first test harness by extending the built-in Build 42 `ISSpawnHordeUI` admin window. Runtime tests in 0.0.2 through 0.0.4 exposed repeated problems with the vanilla bottom-button anchoring/layout lifecycle. Version 0.0.5 removes that dependency for the diagnostic harness.
 
 Source inspection established that multiplayer Horde Spawning normally sends `/createhorde2`; the server command creates zombies through `addZombiesInOutfit(...)`. That API returns the created `IsoZombie` objects, allowing the harness to tag exact test subjects rather than find them later with a proximity scan.
 
@@ -40,26 +40,34 @@ The extended window adds:
 
 For `zf:vanilla`, the original Horde Spawning function is left unchanged. For a diagnostic faction, the client sends a namespaced Zombie Factions command to the server. The server rechecks `Capability.CreateHorde`, sets the directional relationship pair before spawning, uses `addZombiesInOutfit(...)`, assigns faction/test-run mod data to the exact returned zombie, and records a `SPIKE001-####` run ID.
 
-### Runtime finding — 0.0.2
+### Runtime findings — 0.0.2 through 0.0.4
 
-The first enabled-mod dedicated-server test confirmed that the Zombie Factions controls rendered in the built-in Horde Spawning window, but the normal bottom buttons were no longer visible. The extension enlarged the window and manually shifted the vanilla bottom controls downward. That first implementation was incorrect and was removed in 0.0.3.
+The faction controls consistently rendered, proving the client extension loaded. However the normal Spawn/Remove/Close controls were not visible after the window was extended.
 
-### Runtime finding — 0.0.3
+- 0.0.2 manually shifted vanilla bottom controls after resizing and pushed them outside the visible window.
+- 0.0.3 removed the duplicate shift and attempted to rely on vanilla bottom anchoring; the controls still did not render visibly.
+- 0.0.4 explicitly assigned Y coordinates to the vanilla controls after resize; the window geometry and reserved bottom area were correct, but the controls still were not visible in the runtime screenshot.
 
-The second dedicated-server/client test again confirmed that both halves of the mod loaded and that the faction controls rendered. Client and server startup diagnostics were present, but the Spawn/Remove/Close controls were still not visible. No Lua exception from the extension occurred.
+The v0.0.4 screenshot showed approximately two button rows of empty space below the symmetric relationship control. This indicates the remaining problem is tied to the existing vanilla control lifecycle rather than insufficient window height.
 
-Inspection of Build 42 `ISUIElement:setHeight()` showed that a late `setHeight()` call cannot be treated as a reliable child-layout operation for this patch. Version 0.0.4 therefore stops depending on implicit bottom-anchor behavior. After setting the final extended window height, it explicitly computes and assigns the two vanilla bottom button rows:
+### Version 0.0.5 approach
 
-- Spawn and Close at `windowHeight - spacing - buttonHeight - 1`;
-- Remove Zombies and Remove Bodies one button-height plus spacing above that row.
+Version 0.0.5 stops trying to reuse/reposition the vanilla bottom controls. After the final extended window geometry is known, Zombie Factions creates its own diagnostic bottom controls:
 
-Version 0.0.4 also emits one bounded UI diagnostic line:
+- Remove Zombies;
+- Remove Bodies;
+- Spawn;
+- Close.
+
+These controls call the existing `ISSpawnHordeUI` handlers. Therefore selecting `zf:vanilla` still invokes the original PZ `onSpawn` path, while selecting a test faction invokes the Zombie Factions server-authoritative spawn command.
+
+The client emits one bounded geometry line for these independent controls:
 
 ```text
-[ZombieFactions][UI] windowHeight=<h> spawnY=<y> removeY=<y>
+[ZombieFactions][UI] windowHeight=<h> harnessSpawnY=<y> harnessRemoveY=<y> buttonWidth=<w>
 ```
 
-The custom faction-spawn command still has not been runtime-validated because both preceding layout failures prevented the Spawn button from being used.
+The custom faction-spawn command has not yet been runtime-validated because previous UI failures prevented any faction-aware Spawn click.
 
 ## First runtime test
 
@@ -68,8 +76,8 @@ Use a quiet open area and an observing admin who is invisible/god/debug as neede
 ### A — Harness smoke test
 
 1. Open the normal admin **Horde Spawning** tool.
-2. Confirm the new Zombie Factions controls appear below the vanilla health controls and the normal Spawn/Remove/Close controls remain visible at the bottom.
-3. Confirm the client log contains a `[ZombieFactions][UI]` line and record its final `windowHeight`, `spawnY`, and `removeY` values.
+2. Confirm the Zombie Factions controls and the new bottom Spawn/Remove/Close controls are visible.
+3. Confirm the client log contains the bounded `[ZombieFactions][UI]` geometry line.
 4. Leave `zf:vanilla` selected and spawn one zombie; confirm the ordinary vanilla path still works.
 5. Select `zf:test-red`, leave both relationships `FRIENDLY`, and spawn one zombie.
 6. Confirm the server log contains one bounded line with a `SPIKE001-####` run ID, requested/spawned counts, faction, and directional relationships.
@@ -93,7 +101,7 @@ Run the following in 1v1 conditions first:
 | Hostile | HOSTILE | HOSTILE | Intended future result: acquisition/pursuit/attack |
 | Directional | HOSTILE | FRIENDLY | Test faction may initiate; Vanilla must not independently initiate |
 
-At v0.0.4 the faction and relationship state exists, but no target-acquisition hook has yet been implemented. Therefore the current expected result for Hostile is still vanilla non-aggression between zombies. That negative control is useful: it confirms the harness itself is not accidentally changing AI behavior before the targeting work begins.
+At v0.0.5 the faction and relationship state exists, but no target-acquisition hook has yet been implemented. Therefore the current expected result for Hostile is still vanilla non-aggression between zombies. That negative control is useful: it confirms the harness itself is not accidentally changing AI behavior before the targeting work begins.
 
 ## Targeting acceptance probe
 
