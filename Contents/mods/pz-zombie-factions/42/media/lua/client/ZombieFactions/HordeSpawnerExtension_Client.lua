@@ -3,6 +3,8 @@ require "ZombieFactions/Constants"
 
 local MODULE = "ZombieFactions"
 local VANILLA = ZombieFactions.Faction.VANILLA
+local TEST_RED = ZombieFactions.Faction.TEST_RED
+local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
 local REL = ZombieFactions.Relationship
 
 local originalCreateChildren = ISSpawnHordeUI.createChildren
@@ -19,12 +21,6 @@ local function selectedData(combo)
     return option and option.data or nil
 end
 
-local function moveDown(control, amount)
-    if control then
-        control:setY(control:getY() + amount)
-    end
-end
-
 function ISSpawnHordeUI:createChildren()
     originalCreateChildren(self)
 
@@ -35,11 +31,16 @@ function ISSpawnHordeUI:createChildren()
     local x = 11
     local y = self.healthSlider:getBottom() + spacing
 
+    local addY = self.add and self.add:getY() or nil
+    local closeY = self.closeButton2 and self.closeButton2:getY() or nil
+    local removeY = self.removezombies and self.removezombies:getY() or nil
+    local bodiesY = self.clearbodies and self.clearbodies:getY() or nil
+
     self:setHeight(self:getHeight() + extraHeight)
-    moveDown(self.add, extraHeight)
-    moveDown(self.closeButton2, extraHeight)
-    moveDown(self.removezombies, extraHeight)
-    moveDown(self.clearbodies, extraHeight)
+    if addY then self.add:setY(addY + extraHeight) end
+    if closeY then self.closeButton2:setY(closeY + extraHeight) end
+    if removeY then self.removezombies:setY(removeY + extraHeight) end
+    if bodiesY then self.clearbodies:setY(bodiesY + extraHeight) end
 
     self.zfFactionLabel = ISLabel:new(x, y, rowHeight, "Zombie faction:", 1, 1, 1, 1, UIFont.Small, true)
     self:addChild(self.zfFactionLabel)
@@ -48,8 +49,8 @@ function ISSpawnHordeUI:createChildren()
     self.zfFaction:initialise()
     self:addChild(self.zfFaction)
     self.zfFaction:addOptionWithData("Vanilla (zf:vanilla)", VANILLA)
-    self.zfFaction:addOptionWithData("Test Red (zf:test-red)", "zf:test-red")
-    self.zfFaction:addOptionWithData("Test Blue (zf:test-blue)", "zf:test-blue")
+    self.zfFaction:addOptionWithData("Test Red (zf:test-red)", TEST_RED)
+    self.zfFaction:addOptionWithData("Test Blue (zf:test-blue)", TEST_BLUE)
 
     y = y + rowHeight + spacing
     self.zfToVanillaLabel = ISLabel:new(x, y, rowHeight, "Spawned faction -> Vanilla:", 1, 1, 1, 1, UIFont.Small, true)
