@@ -1,14 +1,24 @@
 # Changelog
 
+## 0.0.5 — 2026-08-27
+
+SPIKE-001 Horde Spawner control replacement.
+
+- runtime screenshot confirmed v0.0.4 enlarged the Horde Manager correctly but the vanilla bottom controls were still not rendered inside the visible window;
+- stopped depending on post-construction behavior of the vanilla `anchorBottom` controls;
+- the Zombie Factions extension now creates its own Spawn, Remove Zombies, Remove Bodies, and Close buttons after the final extended window geometry is known;
+- the replacement buttons call the existing `ISSpawnHordeUI` handlers, so Vanilla still follows the stock spawn path while test factions use the Zombie Factions server command;
+- updated bounded UI diagnostics to report the independent harness button coordinates.
+
 ## 0.0.4 — 2026-08-27
 
 SPIKE-001 Horde Spawner explicit geometry fix.
 
 - corrected the second runtime failure where the faction controls rendered but the vanilla Spawn/Remove/Close buttons were still not visible;
 - confirmed from Build 42 `ISUIElement:setHeight()` that changing the window height does not provide a reliable post-construction child reposition for this patch;
-- stopped relying on `anchorBottom` behavior and now explicitly places the two vanilla bottom button rows after the final extended window height is known;
+- stopped relying on `anchorBottom` behavior and explicitly placed the two vanilla bottom button rows after the final extended window height was known;
 - added a bounded `[ZombieFactions][UI]` geometry diagnostic containing the final window height plus Spawn and Remove row Y coordinates;
-- updated client/server startup diagnostics to v0.0.4.
+- subsequent runtime testing showed the vanilla controls still did not render, leading to the independent harness controls in 0.0.5.
 
 ## 0.0.3 — 2026-08-27
 
