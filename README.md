@@ -3,7 +3,7 @@
 **A Project Zomboid Build 42 framework for assigning zombies to factions and defining directional Friendly, Neutral, and Hostile relationships between zombie factions and player factions.**
 
 Status: **Research / Pre-Alpha**  
-Current version: **v0.0.1**  
+Current version: **v0.0.2**  
 Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Scope
@@ -18,7 +18,9 @@ The first milestone is intentionally narrow:
 - relationships can target other zombie factions, Project Zomboid player factions, or unfactioned players;
 - default installation preserves vanilla zombie behavior.
 
-The repository currently contains the faction/relationship data model and research scaffolding. It does **not** yet claim working zombie-vs-zombie combat; Build 42 target acquisition, pursuit, attack, damage, and multiplayer behavior are being traced first.
+Version 0.0.2 adds the first SPIKE-001 diagnostic harness. The built-in admin Horde Spawning window is extended with `zf:test-red` / `zf:test-blue` selections plus directional relationship controls to `zf:vanilla`. Custom test spawns are server-authoritative and require the same `CreateHorde` capability used by vanilla horde spawning.
+
+The harness creates deterministic faction-tagged test subjects; it does **not** yet implement faction-aware target acquisition or zombie-vs-zombie combat. Those are the behaviors SPIKE-001 is intended to investigate.
 
 ## Project docs
 
