@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.3 — 2026-08-27
+
+SPIKE-001 Horde Spawner layout correction.
+
+- fixed the admin Horde Spawning extension pushing the vanilla Spawn, Remove Zombies, Remove Bodies, and Close buttons below the visible window;
+- root cause: the vanilla buttons already use `anchorBottom = true`, so increasing the window height automatically repositions them; the 0.0.2 patch then moved them a second time manually;
+- removed the duplicate manual button repositioning and now relies on the vanilla bottom anchoring behavior;
+- added explicit client/server startup diagnostics for the SPIKE-001 harness.
+
 ## 0.0.2 — 2026-08-26
 
 SPIKE-001 diagnostic horde-spawn harness.
