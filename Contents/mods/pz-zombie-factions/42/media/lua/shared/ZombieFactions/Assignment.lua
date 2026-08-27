@@ -27,7 +27,7 @@ function ZombieFactions.assignZombieFaction(zombie, factionId, testRunId)
         modData[TEST_RUN_KEY] = nil
     end
 
-    if isServer() and zombie.transmitModData then
+    if isServer() then
         pcall(function()
             zombie:transmitModData()
         end)
