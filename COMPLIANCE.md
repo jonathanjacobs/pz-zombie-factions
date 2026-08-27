@@ -1,29 +1,45 @@
 # Project Compliance
 
-Zombie Factions follows the repository rules in [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md), which is the canonical engineering/release interpretation of The Indie Stone's current Project Zomboid Modding Policy for this project.
+Zombie Factions is developed under The Indie Stone's current Project Zomboid Modding Policy and applicable distribution-platform rules.
 
-Before adding third-party material or publishing a release, review:
+Authoritative policy: https://projectzomboid.com/blog/modding-policy/  
+Last reviewed: **2026-08-26**
 
-- [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md)
-- [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)
-- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
-- [`ASSET_LICENSE.md`](ASSET_LICENSE.md)
-- [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)
+## Development rules
 
-## Project-specific public disclosure
+- Repository code, documentation, and assets must be original to this project or have redistribution rights documented before release.
+- Public availability of another mod does not grant permission to copy or redistribute it.
+- Project Zomboid code/assets and privately supplied decompiled Build 42 source may be studied for implementation behavior but must not be copied into or redistributed by this repository.
+- Prefer runtime use of vanilla APIs/identifiers over extracting Project Zomboid assets.
+- Apache-2.0 applies only to material this project has the right to license.
+- The project must not imply official status or endorsement by The Indie Stone.
+- Do not add paid/donor-exclusive functionality, malicious behavior, piracy/licensing circumvention, or unauthorized modpack redistribution.
 
-Zombie Factions is an unofficial independent community mod. It is not developed by, affiliated with, sponsored by, endorsed by, or otherwise official to The Indie Stone.
-
-## Research boundary
-
-Decompiled Project Zomboid Build 42 source may be used privately as an implementation/research reference to understand engine behavior. Decompiled game source and extracted Project Zomboid assets must not be copied into or redistributed by this repository.
+If third-party code/assets are ever introduced, their source, author, license/permission, modifications, redistribution terms, and required attribution must be documented before distribution. A dedicated third-party notice file should be added when there is actually something to disclose.
 
 ## Distribution boundary
 
-The only deployable Project Zomboid runtime tree is intended to be:
+The deployable runtime tree is:
 
 ```text
 Contents/mods/pz-zombie-factions/
 ```
 
-Source-control metadata, private logs/data, credentials, local test artifacts, backups, decompiled game source, and other non-public material must not enter the Workshop package.
+Do not package source-control metadata, private logs/data, credentials, backups, scratch files, decompiled game source, or extracted Project Zomboid assets.
+
+## Release gate
+
+Before a public GitHub or Steam Workshop release:
+
+- confirm `VERSION` and all `mod.info` versions agree;
+- recheck the current Indie Stone modding policy;
+- verify provenance/redistribution rights for every distributed file;
+- confirm branding remains clearly unofficial;
+- validate only the runtime capabilities actually claimed;
+- confirm default installation preserves vanilla zombie behavior;
+- test multiplayer authority/save-load behavior for the claimed feature set;
+- do not claim zombie-vs-zombie combat until acquisition, pursuit, attack, damage, death, and synchronization are demonstrated;
+- confirm normal operation produces no runaway target churn, world scans, command spam, or diagnostic log spam;
+- keep compatibility claims limited to tested Build 42 evidence.
+
+Zombie Factions is an unofficial independent community mod and is not developed by, affiliated with, sponsored by, endorsed by, or otherwise official to The Indie Stone.
