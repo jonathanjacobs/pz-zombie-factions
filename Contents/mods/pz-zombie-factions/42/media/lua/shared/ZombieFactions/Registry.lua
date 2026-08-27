@@ -9,15 +9,21 @@ local Relationships = ZombieFactions.Relationships
 local REL = ZombieFactions.Relationship
 local VANILLA = ZombieFactions.Faction.VANILLA
 
-Registry[VANILLA] = Registry[VANILLA] or {
-    id = VANILLA,
-    name = "Vanilla",
-    builtin = true,
-}
+local function ensureFaction(id, name, builtin, diagnostic)
+    Registry[id] = Registry[id] or {
+        id = id,
+        name = name,
+        builtin = builtin == true,
+        diagnostic = diagnostic == true,
+    }
+    Relationships[id] = Relationships[id] or {
+        [id] = REL.FRIENDLY,
+    }
+end
 
-Relationships[VANILLA] = Relationships[VANILLA] or {
-    [VANILLA] = REL.FRIENDLY,
-}
+ensureFaction(VANILLA, "Vanilla", true, false)
+ensureFaction(ZombieFactions.Faction.TEST_RED, "Test Red", false, true)
+ensureFaction(ZombieFactions.Faction.TEST_BLUE, "Test Blue", false, true)
 
 local function isValidRelationship(value)
     return value == REL.FRIENDLY or value == REL.NEUTRAL or value == REL.HOSTILE
@@ -35,6 +41,7 @@ function ZombieFactions.registerFaction(id, name)
         id = id,
         name = name or id,
         builtin = false,
+        diagnostic = false,
     }
     Relationships[id] = Relationships[id] or {
         [id] = REL.FRIENDLY,
