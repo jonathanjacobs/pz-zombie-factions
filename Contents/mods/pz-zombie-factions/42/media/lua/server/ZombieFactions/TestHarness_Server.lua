@@ -10,7 +10,7 @@ local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
 
 ZombieFactions.TestHarnessSequence = ZombieFactions.TestHarnessSequence or 0
 
-print("[ZombieFactions] Server test harness loaded v0.0.4")
+print("[ZombieFactions] Server test harness loaded v0.0.5")
 
 local function reply(player, ok, message, data)
     if not player then return end
