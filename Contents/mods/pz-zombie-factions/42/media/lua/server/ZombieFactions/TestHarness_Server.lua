@@ -5,6 +5,8 @@ require "ZombieFactions/Assignment"
 local MODULE = "ZombieFactions"
 local COMMAND = "SpawnTestHorde"
 local VANILLA = ZombieFactions.Faction.VANILLA
+local TEST_RED = ZombieFactions.Faction.TEST_RED
+local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
 
 ZombieFactions.TestHarnessSequence = ZombieFactions.TestHarnessSequence or 0
 
@@ -41,23 +43,8 @@ local function boundedNumber(value, minimum, maximum, fallback)
     return n
 end
 
-local function validTestFactionId(factionId)
-    return type(factionId) == "string"
-        and #factionId <= 64
-        and string.match(factionId, "^zf:test[%w_%-]*$") ~= nil
-end
-
-local function ensureTestFaction(factionId)
-    if factionId == VANILLA then
-        return true
-    end
-    if not validTestFactionId(factionId) then
-        return false, "diagnostic faction IDs must start with zf:test"
-    end
-    if ZombieFactions.getFactionDefinition(factionId) then
-        return true
-    end
-    return ZombieFactions.registerFaction(factionId, factionId)
+local function isAllowedDiagnosticFaction(factionId)
+    return factionId == VANILLA or factionId == TEST_RED or factionId == TEST_BLUE
 end
 
 local function configureRelationships(factionId, toVanilla, fromVanilla, symmetric)
@@ -122,15 +109,14 @@ local function handleSpawn(player, args)
 
     args = args or {}
     local factionId = tostring(args.factionId or VANILLA)
-    local ok, err = ensureTestFaction(factionId)
-    if not ok then
-        reply(player, false, err or "invalid test faction")
+    if not isAllowedDiagnosticFaction(factionId) then
+        reply(player, false, "unsupported diagnostic faction")
         return
     end
 
     local toVanilla = tostring(args.toVanilla or ZombieFactions.Relationship.FRIENDLY)
     local fromVanilla = tostring(args.fromVanilla or ZombieFactions.Relationship.FRIENDLY)
-    ok, err = configureRelationships(factionId, toVanilla, fromVanilla, args.symmetric == true)
+    local ok, err = configureRelationships(factionId, toVanilla, fromVanilla, args.symmetric == true)
     if not ok then
         reply(player, false, err or "invalid relationship")
         return
