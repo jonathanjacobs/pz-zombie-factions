@@ -115,12 +115,26 @@ Zombie-to-zombie hostility is not considered supported until controlled Build 42
 
 ### R20 — Faction diplomacy remains independent from other zombie systems
 
-The core faction layer must not require faction-specific outfits, appearance, spawn rules, territory, loot, statistics, abilities, or NPC behavior. Those may consume the faction API later as separate systems.
+The core faction layer must not require faction-specific outfits, appearance, gameplay spawn rules, territory, loot, statistics, abilities, or NPC behavior. Those may consume the faction API later as separate systems.
+
+## Testability
+
+### R21 — Administrators can spawn deterministic faction test subjects
+
+Development/test builds must provide an administrator-only mechanism for spawning zombies with an explicitly selected zombie faction so faction targeting behavior can be tested deterministically. The preferred implementation is an extension of the built-in Build 42 Horde Spawning admin tool when that can be done safely.
+
+The diagnostic spawner must:
+
+- assign the selected faction to the spawned zombies through the authoritative spawn path;
+- support independent configuration of `spawned faction -> zf:vanilla` and `zf:vanilla -> spawned faction` relationships;
+- support `FRIENDLY`, `NEUTRAL`, and `HOSTILE` for each direction;
+- avoid treating this diagnostic capability as a general gameplay population/spawn system;
+- remain admin-only and produce bounded diagnostics suitable for controlled tests.
 
 ## Out of scope for the MVP
 
 - faction-specific visual appearance or uniforms;
-- faction-specific spawning or population distribution;
+- faction-specific gameplay spawning or population distribution, except the administrator-only diagnostic spawner required by R21;
 - territory control;
 - faction-specific loot, statistics, or powers;
 - NPC faction integration;
