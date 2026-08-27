@@ -1,0 +1,7 @@
+id=pz-zombie-factions
+name=Zombie Factions
+description=Research/pre-alpha framework for directional zombie faction relationships in Project Zomboid Build 42.
+author=Jonathan Jacobs
+category=features
+modversion=0.0.1
+versionMin=42.20.0
