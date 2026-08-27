@@ -1,0 +1,22 @@
+# Local Project Zomboid data / logs
+Logs/
+*.log
+*.zip
+*.bak
+*.tmp
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Decompiled/research source must never be committed
+zombie/
+decompiled/
+research-source/
+
+# Workshop/local packaging scratch
+workshop-staging/
+build/
+dist/
