@@ -22,7 +22,8 @@ The repository currently contains the faction/relationship data model and resear
 
 ## Project docs
 
-- [`docs/DESIGN.md`](docs/DESIGN.md) — behavior, architecture, validation criteria, and roadmap.
+- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — normative runtime requirements (R1, R2, R3, ...).
+- [`docs/DESIGN.md`](docs/DESIGN.md) — implementation strategy and development sequence.
 - [`docs/SPIKE-001-zombie-targeting-and-combat-feasibility.md`](docs/SPIKE-001-zombie-targeting-and-combat-feasibility.md) — active Build 42 targeting/combat investigation.
 - [`COMPLIANCE.md`](COMPLIANCE.md) — Project Zomboid policy, provenance, and release constraints.
 - [`CHANGELOG.md`](CHANGELOG.md) — version history.
