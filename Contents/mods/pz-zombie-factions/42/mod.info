@@ -1,7 +1,7 @@
 id=pz-zombie-factions
 name=Zombie Factions
-description=Research/pre-alpha Build 42 framework for assigning zombie factions and directional Friendly, Neutral, and Hostile relationships.
+description=Pre-alpha Build 42 zombie-faction framework with an admin diagnostic horde-spawn harness for controlled faction tests.
 author=Jonathan Jacobs
 category=features
-modversion=0.0.1
+modversion=0.0.2
 versionMin=42.20.0
