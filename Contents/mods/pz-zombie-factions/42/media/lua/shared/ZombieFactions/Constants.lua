@@ -8,6 +8,8 @@ ZombieFactions.Relationship = {
 
 ZombieFactions.Faction = {
     VANILLA = "zf:vanilla",
+    TEST_RED = "zf:test-red",
+    TEST_BLUE = "zf:test-blue",
 }
 
 ZombieFactions.PlayerTarget = {
