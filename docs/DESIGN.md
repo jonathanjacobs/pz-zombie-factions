@@ -1,7 +1,7 @@
 # Zombie Factions Design
 
 Status: Research / Pre-Alpha  
-Version: 0.0.1  
+Version: 0.0.2  
 Target: Project Zomboid Build 42.20.x
 
 Normative runtime behavior is defined in [`REQUIREMENTS.md`](REQUIREMENTS.md). This document describes the current implementation strategy and development sequence.
@@ -17,18 +17,22 @@ canTarget(attacker, candidate)
 shouldRetaliate(attacker, aggressor)
 ```
 
-The initial shared Lua registry already establishes `zf:vanilla`, the three relationship constants, faction registration, and directional relationship lookup. Runtime targeting behavior is intentionally deferred until the Build 42 targeting/combat spike is resolved.
+The shared Lua layer currently provides the faction/relationship registry plus zombie assignment helpers. Runtime targeting behavior remains deferred until SPIKE-001 establishes the cleanest Build 42 integration point.
 
 ## Identity model
 
 Reserved identities:
 
-- `zf:vanilla` — default zombie faction.
-- `zf:<id>` — custom zombie faction.
-- `pf:unfactioned` — player with no Project Zomboid faction.
+- `zf:vanilla` — default zombie faction;
+- `zf:test-red` — shared administrator diagnostic faction;
+- `zf:test-blue` — shared administrator diagnostic faction;
+- `zf:<id>` — future custom zombie faction namespace;
+- `pf:unfactioned` — player with no Project Zomboid faction;
 - `pf:<id>` — existing Project Zomboid player faction.
 
-Zombie assignment should ultimately use persistent zombie-associated data rather than a transient Lua table keyed only by object instance.
+The two test factions are registered in shared code so server and observing clients resolve their identities consistently.
+
+Zombie assignment currently uses zombie `modData` keys for the faction ID and optional SPIKE test-run ID. Persistence and multiplayer propagation remain runtime-validation targets before this mechanism is treated as production-final.
 
 ## Targeting integration
 
@@ -50,23 +54,25 @@ The preferred hook is at, or immediately before, vanilla target acquisition. Rep
 
 ## SPIKE-001 admin test harness
 
-The first behavioral prototype needs deterministic test subjects. The preferred harness is an admin-only extension of Project Zomboid's built-in Horde Spawning tool.
+Build 42's built-in Horde Spawning UI is `ISSpawnHordeUI`. In multiplayer its ordinary spawn path invokes `/createhorde2`; the server-side command creates zombies through `addZombiesInOutfit(...)`.
 
-For each diagnostic spawn operation the administrator should be able to select:
+For faction test subjects, v0.0.2 extends the existing admin window but uses a namespaced Zombie Factions client command rather than modifying the game's Java slash command. The server handler:
 
-- a zombie faction such as `zf:test-red`;
-- `spawned faction -> zf:vanilla` relationship;
-- `zf:vanilla -> spawned faction` relationship;
-- optionally mirror the relationship symmetrically;
-- the normal horde count/location controls needed to position the subjects.
+1. requires `Capability.CreateHorde`;
+2. accepts only the shared diagnostic factions `zf:test-red` and `zf:test-blue`;
+3. validates/configures both directional relationships to `zf:vanilla` before spawning;
+4. calls the normal `addZombiesInOutfit(...)` API;
+5. uses the returned `ArrayList<IsoZombie>` to tag the exact newly created zombie immediately;
+6. assigns a bounded `SPIKE001-####` run ID;
+7. emits one concise run summary and result packet.
 
-This is diagnostic tooling, not the future gameplay spawning/population system. If extending the vanilla Horde Spawning panel proves too brittle, a small adjacent Zombie Factions admin panel may use the same authoritative spawn path instead.
+Selecting `zf:vanilla` leaves the original Horde Spawning `onSpawn()` path unchanged.
 
-The harness should mark spawned test subjects so diagnostic logging can be restricted to them rather than instrumenting every active zombie.
+The harness is intentionally multiplayer/server-authoritative. It is diagnostic tooling, not the future gameplay population system.
 
 ## Zombie-vs-zombie feasibility
 
-A generic target field does not prove the downstream AI supports zombie-on-zombie combat. The active spike must trace:
+A generic target field does not prove the downstream AI supports zombie-on-zombie combat. SPIKE-001 must still trace:
 
 1. candidate discovery and filtering;
 2. target assignment;
@@ -80,7 +86,7 @@ That evidence determines whether the runtime can remain Lua-only or requires a d
 
 ## Multiplayer model
 
-Relationship configuration and world-changing combat decisions should be authoritative on the server. Clients should receive only the state needed for presentation, inspection, or bounded diagnostics.
+Relationship configuration and world-changing combat decisions are server-authoritative. Clients may mirror state for presentation, inspection, or bounded diagnostics but must not independently create divergent hostility decisions.
 
 ## Development sequence
 
@@ -93,9 +99,11 @@ Relationship configuration and world-changing combat decisions should be authori
 
 ### 1 — Engine feasibility and test harness
 
-- [ ] identify the built-in Horde Spawning UI/server spawn path
-- [ ] add admin-only faction-aware diagnostic spawning
-- [ ] verify faction identity is attached before targeting decisions observe the spawned subjects
+- [x] identify the built-in Horde Spawning UI/server spawn path
+- [x] implement admin-only faction-aware diagnostic spawning
+- [x] tag exact returned spawn objects instead of locating them with a proximity scan
+- [ ] validate the extended Horde Spawning UI on a Build 42.20.x dedicated client
+- [ ] verify faction/test-run mod data survives the required server/client lifecycle
 - [ ] trace target discovery and filtering
 - [ ] identify the cleanest faction-aware eligibility point
 - [ ] run Friendly, Neutral, Hostile, and asymmetric relationship controls
@@ -104,10 +112,10 @@ Relationship configuration and world-changing combat decisions should be authori
 
 ### 2 — Faction core
 
-- [ ] persistent zombie assignment
+- [ ] production persistence for zombie assignment
 - [ ] player-faction resolution
-- [ ] server-authoritative relationship state
-- [ ] bounded diagnostics
+- [ ] persistent/server-configurable relationship state
+- [ ] bounded behavioral diagnostics
 
 ### 3 — Runtime behavior
 
