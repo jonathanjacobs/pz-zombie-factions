@@ -1,13 +1,23 @@
 # Changelog
 
+## 0.0.4 — 2026-08-27
+
+SPIKE-001 Horde Spawner explicit geometry fix.
+
+- corrected the second runtime failure where the faction controls rendered but the vanilla Spawn/Remove/Close buttons were still not visible;
+- confirmed from Build 42 `ISUIElement:setHeight()` that changing the window height does not provide a reliable post-construction child reposition for this patch;
+- stopped relying on `anchorBottom` behavior and now explicitly places the two vanilla bottom button rows after the final extended window height is known;
+- added a bounded `[ZombieFactions][UI]` geometry diagnostic containing the final window height plus Spawn and Remove row Y coordinates;
+- updated client/server startup diagnostics to v0.0.4.
+
 ## 0.0.3 — 2026-08-27
 
-SPIKE-001 Horde Spawner layout correction.
+SPIKE-001 Horde Spawner layout correction attempt.
 
-- fixed the admin Horde Spawning extension pushing the vanilla Spawn, Remove Zombies, Remove Bodies, and Close buttons below the visible window;
-- root cause: the vanilla buttons already use `anchorBottom = true`, so increasing the window height automatically repositions them; the 0.0.2 patch then moved them a second time manually;
-- removed the duplicate manual button repositioning and now relies on the vanilla bottom anchoring behavior;
-- added explicit client/server startup diagnostics for the SPIKE-001 harness.
+- first runtime test showed the admin Horde Spawning extension pushing the vanilla Spawn, Remove Zombies, Remove Bodies, and Close buttons below the visible window;
+- removed the 0.0.2 duplicate manual shift and attempted to rely on vanilla bottom anchoring;
+- added explicit client/server startup diagnostics for the SPIKE-001 harness;
+- subsequent runtime testing showed the bottom controls still were not visible, leading to the explicit-coordinate fix in 0.0.4.
 
 ## 0.0.2 — 2026-08-26
 
