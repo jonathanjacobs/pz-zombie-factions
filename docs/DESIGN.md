@@ -50,13 +50,22 @@ The preferred hook is at, or immediately before, vanilla target acquisition. Rep
 
 SPIKE-001 deliberately tests downstream feasibility before modifying discovery. The current diagnostic pairs one explicit HOSTILE test zombie with one nearby Vanilla zombie using a one-time bounded lookup. That lookup is research instrumentation, not production targeting.
 
-Build 42.20.4 runtime evidence shows that server-side `setTarget(otherZombie)` plus `pathToCharacter(otherZombie)` can retain the zombie target briefly but did not move the tested client-owned subjects out of `idle`; the target was then cleared. The active probe therefore executes target/path calls on the owning client. If ordinary owner-side target/path still stalls, it retries once with `spotted(candidate, true)` before target/path assignment. Server and client observe the result independently.
+Build 42.20.4 runtime evidence shows that server-side `setTarget(otherZombie)` plus `pathToCharacter(otherZombie)` can retain the zombie target briefly but did not move the tested client-owned subjects out of `idle`; the target was then cleared.
 
-The result will distinguish among:
+The active v0.0.7 probe therefore executes on the zombie's owning client in three bounded phases:
+
+1. `setTarget(candidate)` + `pathToCharacter(candidate)`;
+2. if that stalls, `spottedOld(candidate, true)` + target/path;
+3. if both target-specific phases stall, clear the target and run `pathToLocationF(...)` toward the candidate coordinates as a generic movement/pathing control.
+
+`spotted()` / `spottedNew()` are intentionally not used with zombie targets because Build 42 has a documented player-oriented defect in `spottedNew(...)` for an `IsoZombie` argument. `spottedOld(...)` is diagnostic only and is not the proposed production acquisition path.
+
+The three-phase result distinguishes among:
 
 - multiplayer ownership overwriting server-injected AI state;
 - perception/alert state being required before pursuit;
-- target validation rejecting zombie candidates;
+- target-specific validation/pathing rejecting zombie candidates;
+- generic client-side movement/path authority failing even without a target;
 - attack-state or damage/network blockers farther downstream.
 
 ## Admin diagnostic harness
@@ -74,7 +83,7 @@ The server:
 7. dispatches exact subject/candidate online IDs to the requesting client;
 8. passively observes server-visible target/state/attack/death transitions.
 
-The owning client resolves those online IDs with bounded retries, confirms local ownership, then performs the two-phase target probe described above. This avoids depending on client propagation of the SPIKE mod-data tag merely to identify the diagnostic subject.
+The owning client resolves those online IDs with bounded retries, confirms local ownership, then performs the three-phase target/path boundary probe described above. This avoids depending on client propagation of the SPIKE mod-data tag merely to identify the diagnostic subject.
 
 The harness UI/custom spawn path has been validated on a Build 42.20.4 dedicated server/client pair, including Red/Blue selection, asymmetric relationships, mutual hostility, and multi-zombie spawning.
 
@@ -116,9 +125,10 @@ If a production implementation must trigger behavior on the owning client, the s
 - [x] tag exact returned spawn objects
 - [x] validate immediate/delayed server assignment resolution
 - [x] demonstrate that server-side zombie target assignment is briefly accepted but cleared without pursuit in client-owned test subjects
-- [x] add owner-side target/path plus perception fallback probe
+- [x] add owner-side target/path, `spottedOld` perception fallback, and raw location-path control
 - [ ] determine whether owner-side target/path is retained and enters pursuit
-- [ ] determine whether `spotted(...)` changes that result
+- [ ] determine whether bounded `spottedOld(...)` materially changes that result
+- [ ] determine whether raw `pathToLocationF(...)` movement works when target-specific phases fail
 - [ ] trace the exact target-clearing/eligibility boundary
 - [ ] run Friendly, Neutral, Hostile, and asymmetric controls through the eventual acquisition hook
 - [ ] trace attack, damage, death, and MP synchronization
