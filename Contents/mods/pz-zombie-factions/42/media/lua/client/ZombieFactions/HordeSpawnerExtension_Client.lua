@@ -10,7 +10,7 @@ local REL = ZombieFactions.Relationship
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.5")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.6")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -24,7 +24,7 @@ local function selectedData(combo)
 end
 
 local function addHarnessBottomButtons(self, spacing, buttonHeight)
-    -- Do not depend on the vanilla bottom-button anchor lifecycle.  The original
+    -- Do not depend on the vanilla bottom-button anchor lifecycle. The original
     -- buttons remain untouched; these diagnostic controls are created after the
     -- final extended window height is known, so their coordinates are stable.
     local x = 11
@@ -90,11 +90,11 @@ function ISSpawnHordeUI:createChildren()
     local fontHeight = getTextManager():getFontHeight(UIFont.Small)
     local rowHeight = fontHeight + 6
     local spacing = 10
-    local extraHeight = (rowHeight + spacing) * 4
+    local extraHeight = (rowHeight + spacing) * 5
     local x = 11
     local y = self.healthSlider:getBottom() + spacing
 
-    -- Extend the vanilla window for the four diagnostic rows.  The test harness
+    -- Extend the vanilla window for the five diagnostic rows. The test harness
     -- creates its own bottom controls after this resize instead of trying to
     -- reposition the vanilla anchorBottom controls.
     self:setHeight(self:getHeight() + extraHeight)
@@ -128,11 +128,19 @@ function ISSpawnHordeUI:createChildren()
     addRelationshipOptions(self.zfFromVanilla)
 
     y = y + rowHeight + spacing
-    self.zfSymmetric = ISTickBox:new(x, y, 300, rowHeight, "", self, nil)
+    self.zfSymmetric = ISTickBox:new(x, y, 330, rowHeight, "", self, nil)
     self.zfSymmetric:initialise()
     self:addChild(self.zfSymmetric)
     self.zfSymmetric:addOption("Symmetric: mirror first relationship both ways")
     self.zfSymmetric.selected[1] = true
+
+    y = y + rowHeight + spacing
+    self.zfTargetProbe = ISTickBox:new(x, y, 340, rowHeight, "", self, nil)
+    self.zfTargetProbe:initialise()
+    self:addChild(self.zfTargetProbe)
+    self.zfTargetProbe:addOption("SPIKE: force nearest HOSTILE Vanilla zombie target")
+    self.zfTargetProbe.selected[1] = false
+    self.zfTargetProbe:setTooltip("Diagnostic only. Requires Spawned faction -> Vanilla = HOSTILE. Forces one spawned test zombie to target/path toward the nearest Vanilla zombie within 12 tiles.")
 
     addHarnessBottomButtons(self, spacing, rowHeight)
 end
@@ -170,6 +178,7 @@ local function buildFactionSpawnArgs(self, factionId)
         toVanilla = selectedData(self.zfToVanilla) or REL.FRIENDLY,
         fromVanilla = selectedData(self.zfFromVanilla) or REL.FRIENDLY,
         symmetric = self.zfSymmetric.selected[1] == true,
+        targetProbe = self.zfTargetProbe.selected[1] == true,
     }
 end
 
@@ -205,12 +214,16 @@ local function onServerCommand(module, command, args)
 
     if args.ok then
         print(string.format(
-            "[ZombieFactions][%s] %s: spawned %s/%s as %s",
+            "[ZombieFactions][%s] %s: spawned %s/%s as %s assignmentImmediate=%s/%s deferredSamples=%s targetProbeQueued=%s",
             tostring(args.runId or "SPIKE001"),
             tostring(args.message or "spawn complete"),
             tostring(args.spawned or "?"),
             tostring(args.requested or "?"),
-            tostring(args.factionId or "?")
+            tostring(args.factionId or "?"),
+            tostring(args.assignmentImmediate or "?"),
+            tostring(args.spawned or "?"),
+            tostring(args.validationSampled or "?"),
+            tostring(args.targetProbeQueued == true)
         ))
     else
         print("[ZombieFactions] faction horde spawn rejected: " .. tostring(args.message or "unknown error"))
