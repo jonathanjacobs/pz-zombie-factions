@@ -1,241 +1,178 @@
 # SPIKE-001 — Zombie Targeting and Combat Feasibility
 
-Status: Open — v0.0.5 spawn harness validated; v0.0.6 assignment and forced-target probe awaiting runtime test  
+Status: Open — v0.0.6 isolated server-target failure; v0.0.7 tests client ownership/perception  
 Target: Project Zomboid Build 42.20.x
 
 ## Question
 
 Can Zombie Factions enforce directional faction relationships at a clean target-eligibility boundary, and can a vanilla `IsoZombie` reliably pursue, attack, damage, and kill another `IsoZombie` in Build 42 multiplayer?
 
-## Evidence
+## Evidence boundary
 
-Use Project Zomboid Build 42 API documentation, controlled runtime tests/logs, and the privately supplied decompiled Build 42 source as implementation research. Decompiled game source is not copied into this repository.
+Use Build 42 API documentation, controlled runtime tests/logs, and the privately supplied decompiled Build 42 source as implementation research. Decompiled game source is not copied into this repository.
 
-## Engine trace
+Do not claim zombie-vs-zombie combat until target acquisition, pursuit, attack, damage, death, and dedicated-server synchronization are all demonstrated.
 
-Follow the complete path through:
+## Relevant public API surface
 
-1. candidate discovery and filtering;
-2. target assignment;
-3. pathfinding/pursuit;
-4. attack-state entry and target-type assumptions;
-5. hit/damage processing;
-6. death handling;
-7. server/client authority and synchronization;
-8. save/load and relevance transitions.
+Current Build 42 JavaDocs expose:
 
-## Current API findings
+- `IsoZombie.setTarget(IsoMovingObject)` / `getTarget()`;
+- `IsoZombie.spotted(IsoMovingObject, boolean)`;
+- `IsoZombie.pathToCharacter(IsoGameCharacter)`;
+- `IsoZombie.isZombieAttacking(IsoMovingObject)`;
+- `IsoZombie.getOnlineID()`, `getOwnerPlayer()`, `isRemoteZombie()`, and `getRealState()`.
 
-Current Build 42 JavaDocs expose several useful type boundaries:
+These signatures permit another `IsoZombie` to be passed at the type level. They do not prove that downstream AI state transitions or multiplayer combat packets support zombie-to-zombie combat.
 
-- `IsoZombie.getTarget()` returns `IsoMovingObject`;
-- `IsoZombie.setTarget(IsoMovingObject)` accepts a generic moving object;
-- `IsoZombie.spotted(IsoMovingObject, boolean)` plus `spottedNew` / `spottedOld` accept generic moving objects;
-- `IsoZombie.pathToCharacter(IsoGameCharacter)` accepts a generic game character;
-- `IsoZombie.isZombieAttacking(IsoMovingObject)` can test attack state against a generic moving object;
-- `IsoZombie.getOnlineID()`, `getOwnerPlayer()`, and `getRealState()` are available for bounded diagnostics.
+Current multiplayer API documentation is also a warning sign for the later damage stage: `GameClient.sendZombieHit(...)` takes an `IsoPlayer` target, and the documented packet enum contains `ZombieHitPlayer` but no corresponding `ZombieHitZombie` entry. Treat this as strong evidence that native zombie-vs-zombie damage networking may require a custom server-authoritative path, not as proof until the pursuit/attack layers are tested.
 
-Because `IsoZombie` is an `IsoGameCharacter` and an `IsoMovingObject`, these public signatures do not prohibit a zombie from being passed as another zombie's target/path target. This is only type-level evidence. It does **not** prove that downstream attack-state animation logic, hit processing, damage, death handling, or multiplayer ownership supports zombie-to-zombie combat.
+## Harness validated through v0.0.5
 
-The v0.0.6 probe therefore tests the middle of the chain directly before we modify normal candidate discovery.
+The admin Horde Spawning extension is working on a Build 42.20.4 dedicated server/client pair:
 
-## Diagnostic harness
+- Vanilla spawning still uses the stock path;
+- Test Red / Test Blue custom spawns reach the Zombie Factions server command;
+- asymmetric and symmetric relationship values are transported correctly;
+- 1-zombie and 10-zombie custom requests succeeded;
+- custom assignment is applied to the exact `IsoZombie` returned by `addZombiesInOutfit(...)`.
 
-Version 0.0.2 introduced the first test harness by extending the built-in Build 42 `ISSpawnHordeUI` admin window. Runtime tests in 0.0.2 through 0.0.4 exposed repeated problems with the vanilla bottom-button anchoring/layout lifecycle. Version 0.0.5 removed that dependency by creating independent bottom controls that call the existing Horde Manager handlers.
+The one-time nearest-Vanilla lookup used by the SPIKE is diagnostic only. It is not the production targeting design.
 
-Source inspection established that multiplayer Horde Spawning normally sends `/createhorde2`; the server command creates zombies through `addZombiesInOutfit(...)`. That API returns the created `IsoZombie` objects, allowing the harness to tag exact test subjects rather than find them later with a proximity scan.
+## v0.0.6 result — server target assignment is insufficient
 
-The extended window provides:
+The runtime test exercised many faction/relationship combinations with the target-probe checkbox both enabled and disabled.
 
-- `zf:vanilla`, `zf:test-red`, and `zf:test-blue` faction choices;
-- `spawned faction -> zf:vanilla` relationship;
-- `zf:vanilla -> spawned faction` relationship;
-- `FRIENDLY`, `NEUTRAL`, and `HOSTILE` choices for each direction;
-- a symmetric convenience toggle;
-- in v0.0.6, an opt-in `SPIKE: force nearest HOSTILE Vanilla zombie target` toggle.
+### Assignment: PASSED
 
-For `zf:vanilla`, the original Horde Spawning function is left unchanged. For a diagnostic faction, the client sends a namespaced Zombie Factions command to the server. The server rechecks `Capability.CreateHorde`, sets the directional relationship pair before spawning, uses `addZombiesInOutfit(...)`, assigns faction/test-run mod data to the exact returned zombie, and records a `SPIKE001-####` run ID.
+Server-side faction/test-run metadata resolved correctly immediately and after the delayed validation sample. Representative runs reported the expected faction and run ID with `ok=true`.
 
-## Runtime findings — 0.0.2 through 0.0.4
+This confirms that the observed combat failure is not explained by the custom subject losing its server-side faction assignment during the short test window.
 
-The faction controls consistently rendered, proving the client extension loaded. However the normal Spawn/Remove/Close controls were not visible after the window was extended.
+### Forced target/path: FAILED at AI transition
 
-- 0.0.2 manually shifted vanilla bottom controls after resizing and pushed them outside the visible window.
-- 0.0.3 removed the duplicate shift and attempted to rely on vanilla bottom anchoring; the controls still did not render visibly.
-- 0.0.4 explicitly assigned Y coordinates to the vanilla controls after resize; the window geometry and reserved bottom area were correct, but the controls still were not visible in the runtime screenshot.
+Three valid HOSTILE probe runs are especially diagnostic:
 
-The v0.0.4 screenshot showed approximately two button rows of empty space below the symmetric relationship control. This isolated the problem to the existing vanilla control lifecycle rather than insufficient window height.
+| Run | Subject | Candidate | Distance | Initial force | Result |
+| --- | ---: | ---: | ---: | --- | --- |
+| `SPIKE001-0009` | 24725 | 24722 | 1.02 | `setTarget=true`, `pathToCharacter=true`, retained | target cleared; remained `idle`; no attack |
+| `SPIKE001-0010` | 24732 | 24731 | 0.60 | `setTarget=true`, `pathToCharacter=true`, retained | target cleared; remained `idle`; no attack |
+| `SPIKE001-0011` | 24733 | 24728 | 0.43 | `setTarget=true`, `pathToCharacter=true`, retained | target cleared; remained `idle`; no attack |
 
-## Runtime validation — 0.0.5 — PASSED
+No subject or candidate died. The target could therefore be stored briefly, but the normal update path removed it before pursuit/attack began.
 
-Version 0.0.5 stopped trying to reposition the vanilla bottom controls. It created independent Remove Zombies, Remove Bodies, Spawn, and Close controls after final window geometry was known; those controls call the existing `ISSpawnHordeUI` handlers.
+This narrows the failure boundary to **after direct target assignment but before a durable pursuit/attack transition**.
 
-Dedicated-server/client testing on Build 42.20.4 validated the diagnostic harness.
+### Multiplayer ownership remains unresolved
 
-Observed client geometry:
+All three forced subjects reported `owner=admin`. The v0.0.6 force was performed on the server even though the zombie was client-owned.
 
-```text
-[ZombieFactions][UI] windowHeight=668 harnessSpawnY=635 harnessRemoveY=603 buttonWidth=168
-```
+Therefore v0.0.6 does **not** distinguish between:
 
-The stock Vanilla spawn path continued to reach `CreateHorde2Command`, while custom faction spawns reached the Zombie Factions server path. Seven custom test runs completed successfully:
+1. the owning client overwriting a server-injected target;
+2. vanilla AI/perception logic rejecting a zombie target;
+3. a required internal perception/alert state not being initialized by `setTarget + pathToCharacter` alone.
 
-- `SPIKE001-0001`: one `zf:test-red`, `FRIENDLY -> zf:vanilla`, reciprocal `FRIENDLY`;
-- `SPIKE001-0002` and `0003`: one `zf:test-red`, `HOSTILE -> zf:vanilla`, reciprocal `FRIENDLY`;
-- `SPIKE001-0004`: one `zf:test-blue`, `HOSTILE -> zf:vanilla`, reciprocal `FRIENDLY`;
-- `SPIKE001-0005`: one `zf:test-blue`, mutual `HOSTILE`;
-- `SPIKE001-0006`: one `zf:test-red`, mutual `HOSTILE`;
-- `SPIKE001-0007`: ten `zf:test-red`, mutual `HOSTILE`, `spawned=10 requested=10`.
+The v0.0.6 client observer itself loaded, but the runtime client log contained no `CLIENT_OBSERVER` entries. It depended on the server-assigned SPIKE mod-data tag being visible on the client zombie instance. v0.0.7 removes that dependency and addresses subjects by network online ID instead.
 
-The client received a success result for every custom run, including the 10/10 spawn. No Zombie Factions Lua exception occurred during these spawn operations, and the server shut down normally afterward.
+## v0.0.7 experiment — owner-side two-phase probe
 
-This validates the UI, client-to-server command path, server permission/spawn path, faction selection transport, directional relationship transport/configuration, assignment call success on exact returned zombies, result reply, and multi-zombie diagnostic spawning. It does **not** yet demonstrate that assignment remains resolvable after the immediate call, propagates to the observing client, survives persistence/relevance transitions, or affects zombie AI.
+The UI remains unchanged: check `SPIKE: force nearest HOSTILE Vanilla zombie target` with `spawned faction -> Vanilla = HOSTILE`.
 
-## Version 0.0.6 experiments
+The server now:
 
-### A — Assignment re-resolution
+1. waits for the spawned subject to stabilize;
+2. finds one nearby living Vanilla candidate within the bounded SPIKE radius;
+3. records subject/candidate online IDs and the current zombie owner;
+4. sends those IDs to the requesting client;
+5. does **not** call `setTarget` itself;
+6. passively observes server-visible target/state/attack/death changes.
 
-For every custom spawn, the server now independently calls `getZombieFaction(zombie)` and `getZombieTestRun(zombie)` immediately after assignment. It also schedules a second resolution after 30 ticks for up to 10 spawned subjects per run.
+The requesting client retries a bounded lookup until both online IDs are locally relevant and verifies that the subject's owner is the local player.
 
-Expected server summary:
+### Phase A — owner target/path
 
-```text
-[ZombieFactions][SPIKE001-....] ... assignmentImmediate=1/1 deferredSamples=1 ...
-```
-
-Expected deferred verification:
-
-```text
-[ZombieFactions][SPIKE001-....][ASSIGN] phase=deferred onlineID=... expectedFaction=zf:test-red resolvedFaction=zf:test-red resolvedRun=SPIKE001-.... owner=... ok=true
-```
-
-A client `OnZombieUpdate` observer exits immediately for ordinary zombies. For explicitly tagged SPIKE subjects only, it logs initial state and subsequent state/target/ownership changes. Seeing the correct run ID and faction in a `CLIENT_OBSERVER` line demonstrates that the test subject's mod data became visible to the observing client.
-
-This still does not prove save/restart or relevance persistence.
-
-### B — Forced target/path feasibility probe
-
-The new Horde Manager toggle is:
-
-```text
-SPIKE: force nearest HOSTILE Vanilla zombie target
-```
-
-It is allowed only when `spawned faction -> Vanilla = HOSTILE`.
-
-When enabled, the server waits 30 ticks after spawning, then for **one** test subject finds the nearest living `zf:vanilla` zombie within 12 tiles. It calls:
+On the owning client:
 
 ```text
 subject:setTarget(candidate)
 subject:pathToCharacter(candidate)
 ```
 
-and observes the subject for 180 ticks. Diagnostics are transition-based plus one final sample and report:
+The client logs target retention, real state, attack state, ownership, `isRemoteZombie`, distance, and death.
 
-- subject/candidate online IDs;
-- resolved factions;
-- current zombie owner player;
-- whether `setTarget` and `pathToCharacter` returned without exception;
-- whether the target was retained;
-- `getRealState()`;
-- `isZombieAttacking(candidate)`;
-- distance;
-- subject/candidate death state.
+### Phase B — owner perception + target/path
 
-The candidate lookup is intentionally a one-time, bounded SPIKE operation. It may inspect the current zombie list to locate the nearest Vanilla subject because this test is explicitly measuring downstream target compatibility. This is **not** the production targeting design and must not become a recurring global scan.
-
-### Runtime procedure for v0.0.6
-
-Use a quiet, open area. The observing admin should be invisible/god/debug as appropriate so the player is not a competing preferred target.
-
-1. Spawn **one Vanilla zombie** at the intended test point using the normal Horde Manager path.
-2. Move the spawn point a few tiles away but remain within approximately 3–8 tiles of the Vanilla zombie.
-3. Set **Number of Zombies = 1** and preferably **Radius = 0** for the custom subject.
-4. Select **Test Red (`zf:test-red`)**.
-5. Set `Spawned faction -> Vanilla = HOSTILE`.
-6. **Uncheck Symmetric**.
-7. Set `Vanilla -> spawned faction = FRIENDLY`.
-8. Check **SPIKE: force nearest HOSTILE Vanilla zombie target**.
-9. Spawn the Red zombie.
-10. Observe for several seconds without attacking or moving the zombies manually.
-11. Save the client and server logs.
-
-The asymmetric relationship is deliberate: the test asks whether the Red subject can be forced down the target/pursuit chain while the Vanilla control is not independently intended to initiate.
-
-### How to interpret the v0.0.6 result
-
-A strong positive target/path result would look like:
+If Phase A remains idle or loses the target, the owner then tests:
 
 ```text
-[ASSIGN] ... ok=true
-[TARGET_PROBE] phase=forced ... setTarget=true pathToCharacter=true retained=true ...
-[TARGET_PROBE] phase=observe ... target=<candidate> retained=true state=<pursuit state> ...
+subject:spotted(candidate, true)
+subject:setTarget(candidate)
+subject:pathToCharacter(candidate)
 ```
 
-If the client also emits the same SPIKE run/faction, assignment propagation is confirmed for the active relevant zombie.
+If Phase A has already produced a non-idle/attack transition with the expected target retained, Phase B is skipped so the successful state is not disturbed.
 
-Possible outcomes:
+## How to interpret v0.0.7
 
-- **A — target retained, pursuit and native attack/damage occur:** downstream zombie-vs-zombie support is much stronger than currently proven; next trace normal acquisition/`spotted(...)` and relationship eligibility.
-- **B — target retained and pursuit occurs, but attack/damage does not:** likely attack-state or combat-processing intervention is required.
-- **C — `setTarget` succeeds but target is immediately replaced/cleared:** target validation/ownership or AI update logic rejects/overwrites the zombie candidate; trace that boundary before adding discovery logic.
-- **D — `pathToCharacter` or state transition rejects the target:** pursue/path layer is a blocker.
-- **E — server target works briefly but client ownership overwrites it:** multiplayer zombie authority is a primary integration constraint.
+- **Owner Phase A succeeds:** v0.0.6 was primarily an MP authority/ownership problem. Continue tracing the owner-driven pursuit into attack state.
+- **Phase A fails, Phase B succeeds:** `setTarget` alone is insufficient; vanilla perception/`spotted` state is a required part of target acquisition.
+- **Both phases briefly retain then clear the zombie target while staying idle:** strong evidence that normal zombie AI validates/filters the target or attack intent beyond the public setters. Trace the exact target-clearing state transition in the decompiled source before implementing discovery.
+- **Pursuit works but attack never starts:** the next blocker is attack-state target assumptions.
+- **Attack animation/state works but no damage is delivered:** expect a custom server-authoritative zombie-vs-zombie damage path to be necessary, especially given the documented network packet surface.
 
-Do not add a production candidate-discovery hook until this experiment identifies whether the downstream chain is viable.
+## Runtime procedure
 
-## Behavioral controls after forced-target feasibility
+Use a quiet open area with the admin not acting as an attractive combat target.
 
-Once forced zombie-to-zombie pursuit/attack feasibility is understood, run normal relationship controls in 1v1 conditions:
+1. Spawn one Vanilla zombie using the normal Horde Manager path.
+2. Place the custom spawn point roughly 1–5 tiles away.
+3. Set Number of Zombies = 1 and Radius = 0.
+4. Select Test Red or Test Blue.
+5. Set `Spawned faction -> Vanilla = HOSTILE`.
+6. Prefer `Vanilla -> spawned faction = FRIENDLY` with Symmetric unchecked for the cleanest directional test.
+7. Check the SPIKE target-probe checkbox.
+8. Spawn once and leave both zombies undisturbed for several seconds.
+9. Repeat once with mutual HOSTILE if desired.
+10. Save client and server logs.
 
-| Test | Test faction -> Vanilla | Vanilla -> Test faction | Intended behavior |
-| --- | --- | --- | --- |
-| Vanilla control | n/a | n/a | Vanilla zombies ignore each other |
-| Friendly | FRIENDLY | FRIENDLY | Neither faction proactively attacks |
-| Neutral | NEUTRAL | NEUTRAL | Neither faction proactively attacks |
-| Hostile | HOSTILE | HOSTILE | Eligible for acquisition/pursuit/attack |
-| Directional | HOSTILE | FRIENDLY | Test faction may initiate; Vanilla must not independently initiate |
+Useful v0.0.7 markers are:
 
-Friendly and Neutral behavior must be enforced at a clean eligibility boundary rather than by continuously clearing targets after vanilla chooses them.
+```text
+[TARGET_PROBE] phase=dispatch
+[OWNER_PROBE] instruction
+[OWNER_PROBE] resolved
+[OWNER_PROBE] phase=owner-target-path
+[OWNER_PROBE] phase=owner-spotted-target-path
+[CLIENT_OBSERVER]
+[SERVER_OBSERVER]
+```
 
-## Targeting acceptance criteria
+A `resolve-timeout` is itself useful: it means the server-selected subject/candidate or ownership identity was not resolvable on the requesting client during the bounded window.
 
-Zombie-to-zombie hostility is not considered supported until a controlled hostile 1v1 demonstrates that one test zombie can:
+## Acceptance criteria
 
-1. resolve the expected custom faction identity;
-2. acquire an opposing-faction zombie through the eventual faction-aware acquisition path;
-3. retain that target;
+Zombie-to-zombie hostility is not supported until a controlled hostile 1v1 demonstrates that one test zombie can:
+
+1. resolve the expected faction identity;
+2. acquire the intended opposing zombie through the eventual faction-aware path;
+3. retain the target;
 4. pursue it;
 5. enter an attack state;
 6. apply damage;
-7. reach disengagement or death;
+7. disengage or kill the target correctly;
 8. synchronize correctly on a dedicated server/client pair.
 
-Friendly and Neutral controls must demonstrate that the same nearby candidate is not proactively attacked when policy prohibits it.
+Friendly and Neutral controls must then show that the same nearby candidate is not proactively attacked when policy prohibits it.
 
-## Later tests
+## Performance / architecture guardrails
 
-After 1v1 behavior is understood:
-
-- repeat at 3v3 and 5v5 to observe target replacement and dead-target cleanup;
-- test save/restart and relevance unload/reload for the proposed production assignment mechanism;
-- only then increase population for performance testing.
-
-## Instrumentation rules
-
-Diagnostics remain limited to explicitly spawned SPIKE-001 subjects and should record only what is needed to reconstruct the decision path:
-
-- test-run ID;
-- subject ID/faction;
-- candidate/target ID and faction;
-- resolved directional relationship;
-- target set/cleared transitions;
-- pursuit/attack transitions where observable;
-- damage/death events;
-- server/client origin and ownership where relevant.
-
-Do not default to globally scanning zombies and repeatedly clearing `setTarget(nil)`. That remains a last-resort approach requiring explicit performance evidence.
+- relationship lookup should remain O(1);
+- no recurring all-zombie-vs-all-zombie scan;
+- no per-tick repeated `setTarget(nil)` suppression loop;
+- bounded diagnostic scans are permitted only for explicitly requested SPIKE runs;
+- multiplayer world-changing damage must ultimately be server-authoritative.
 
 ## Deliverable
 
-Close this spike with the exact classes/methods/events involved, the validated Horde Spawning test path, Lua-only feasibility, any deeper-hook requirement, performance implications, and multiplayer authority implications. Add an ADR only if the resulting implementation choice is significant enough to need one.
+Close this spike with the exact target/AI/combat boundaries, the viable Lua hook surface (if any), any deeper-hook requirement, multiplayer authority model, damage/death synchronization approach, and performance implications. Add an ADR only if the resulting architectural choice is significant enough to need one.
