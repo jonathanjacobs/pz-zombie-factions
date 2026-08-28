@@ -5,6 +5,8 @@ require "ZombieFactions/Assignment"
 local MODULE = "ZombieFactions"
 local SPAWN_COMMAND = "SpawnTestHorde"
 local TARGET_PROBE_COMMAND = "TargetProbeInstruction"
+local DAMAGE_PROBE_COMMAND = "TargetProbeAttack"
+local DAMAGE_RESULT_COMMAND = "TargetProbeDamageResult"
 local VANILLA = ZombieFactions.Faction.VANILLA
 local TEST_RED = ZombieFactions.Faction.TEST_RED
 local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
@@ -16,13 +18,16 @@ local TARGET_PROBE_DELAY_TICKS = 30
 local TARGET_PROBE_SAMPLE_TICKS = 15
 local TARGET_PROBE_DURATION_TICKS = 180
 local TARGET_PROBE_RADIUS = 12
+local DAMAGE_PROBE_AMOUNT = 0.25
+local DAMAGE_PROBE_MAX_DISTANCE = 1.25
+local DAMAGE_PROBE_COOLDOWN_TICKS = 10
 
 ZombieFactions.TestHarnessSequence = ZombieFactions.TestHarnessSequence or 0
 ZombieFactions.PendingAssignmentValidations = ZombieFactions.PendingAssignmentValidations or {}
 ZombieFactions.PendingTargetProbes = ZombieFactions.PendingTargetProbes or {}
 ZombieFactions.ActiveTargetProbes = ZombieFactions.ActiveTargetProbes or {}
 
-print("[ZombieFactions] Server test harness loaded v0.0.7")
+print("[ZombieFactions] Server test harness loaded v0.0.8")
 
 local function reply(player, ok, message, data)
     if not player then return end
@@ -117,6 +122,15 @@ local function isDead(zombie)
         return zombie:isDead()
     end)
     return ok and dead == true
+end
+
+local function healthValue(zombie)
+    if not zombie then return -1 end
+    local ok, value = pcall(function()
+        return zombie:getHealth()
+    end)
+    if ok and value ~= nil then return tonumber(value) or -1 end
+    return -1
 end
 
 local function distanceSquared(a, b)
@@ -244,7 +258,7 @@ local function beginOwnerTargetProbe(record)
     local owner = ownerUsername(subject)
 
     print(string.format(
-        "[ZombieFactions][%s][TARGET_PROBE] phase=dispatch subject=%d faction=%s owner=%s candidate=%d candidateFaction=%s distance=%.2f requester=%s",
+        "[ZombieFactions][%s][TARGET_PROBE] phase=dispatch subject=%d faction=%s owner=%s candidate=%d candidateFaction=%s distance=%.2f candidateHealth=%.3f requester=%s",
         record.runId,
         subjectId,
         ZombieFactions.getZombieFaction(subject),
@@ -252,6 +266,7 @@ local function beginOwnerTargetProbe(record)
         candidateId,
         ZombieFactions.getZombieFaction(candidate),
         math.sqrt(dist2),
+        healthValue(candidate),
         tostring(record.requester)
     ))
 
@@ -266,6 +281,7 @@ local function beginOwnerTargetProbe(record)
 
     ZombieFactions.ActiveTargetProbes[#ZombieFactions.ActiveTargetProbes + 1] = {
         runId = record.runId,
+        requester = record.requester,
         subject = subject,
         candidate = candidate,
         subjectId = subjectId,
@@ -273,6 +289,8 @@ local function beginOwnerTargetProbe(record)
         remaining = TARGET_PROBE_DURATION_TICKS,
         sampleCountdown = 0,
         lastSignature = nil,
+        damageCooldown = 0,
+        damageHits = 0,
     }
 end
 
@@ -287,6 +305,7 @@ local function sampleActiveProbe(record, final)
     local state = zombieState(subject)
     local attacking = isZombieAttackingTarget(subject, candidate)
     local dist = math.sqrt(distanceSquared(subject, candidate))
+    local candidateHealth = healthValue(candidate)
     local signature = table.concat({
         tostring(subjectDead),
         tostring(candidateDead),
@@ -295,11 +314,12 @@ local function sampleActiveProbe(record, final)
         state,
         tostring(attacking),
         ownerUsername(subject),
+        string.format("%.3f", candidateHealth),
     }, "|")
 
     if final or signature ~= record.lastSignature then
         print(string.format(
-            "[ZombieFactions][%s][SERVER_OBSERVER] phase=%s subject=%d owner=%s target=%d expectedTarget=%d retained=%s state=%s attacking=%s distance=%.2f subjectDead=%s candidateDead=%s",
+            "[ZombieFactions][%s][SERVER_OBSERVER] phase=%s subject=%d owner=%s target=%d expectedTarget=%d retained=%s state=%s attacking=%s distance=%.2f candidateHealth=%.3f damageHits=%d subjectDead=%s candidateDead=%s",
             record.runId,
             final and "final" or "observe",
             record.subjectId,
@@ -310,11 +330,119 @@ local function sampleActiveProbe(record, final)
             state,
             tostring(attacking),
             dist,
+            candidateHealth,
+            record.damageHits or 0,
             tostring(subjectDead),
             tostring(candidateDead)
         ))
         record.lastSignature = signature
     end
+end
+
+local function findActiveProbe(runId, subjectId, candidateId)
+    for i = 1, #ZombieFactions.ActiveTargetProbes do
+        local record = ZombieFactions.ActiveTargetProbes[i]
+        if record.runId == runId and record.subjectId == subjectId and record.candidateId == candidateId then
+            return record
+        end
+    end
+    return nil
+end
+
+local function sendDamageResult(record, ok, message, beforeHealth, afterHealth, candidateDead)
+    sendServerCommand(MODULE, DAMAGE_RESULT_COMMAND, {
+        requester = record.requester,
+        runId = record.runId,
+        subjectId = record.subjectId,
+        candidateId = record.candidateId,
+        ok = ok,
+        message = message,
+        beforeHealth = beforeHealth,
+        afterHealth = afterHealth,
+        candidateDead = candidateDead == true,
+        damageHits = record.damageHits or 0,
+    })
+end
+
+local function handleDamageProbe(player, args)
+    args = args or {}
+    if not player then return end
+
+    local runId = tostring(args.runId or "")
+    local subjectId = tonumber(args.subjectId)
+    local candidateId = tonumber(args.candidateId)
+    if runId == "" or subjectId == nil or candidateId == nil then return end
+
+    local record = findActiveProbe(runId, subjectId, candidateId)
+    if not record then
+        print(string.format("[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=no-active-probe subject=%s candidate=%s", runId, tostring(subjectId), tostring(candidateId)))
+        return
+    end
+
+    local username = player:getUsername()
+    if username ~= record.requester or ownerUsername(record.subject) ~= username then
+        print(string.format("[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=owner-mismatch requester=%s player=%s owner=%s", runId, tostring(record.requester), tostring(username), ownerUsername(record.subject)))
+        return
+    end
+
+    if isDead(record.subject) or isDead(record.candidate) then
+        return
+    end
+
+    if record.damageCooldown > 0 then
+        return
+    end
+
+    local sourceFaction = ZombieFactions.getZombieFaction(record.subject)
+    local candidateFaction = ZombieFactions.getZombieFaction(record.candidate)
+    local relationship = ZombieFactions.getRelationship(sourceFaction, candidateFaction)
+    if candidateFaction ~= VANILLA or relationship ~= HOSTILE then
+        print(string.format(
+            "[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=policy sourceFaction=%s candidateFaction=%s relationship=%s",
+            runId,
+            tostring(sourceFaction),
+            tostring(candidateFaction),
+            tostring(relationship)
+        ))
+        return
+    end
+
+    local distance = math.sqrt(distanceSquared(record.subject, record.candidate))
+    if distance > DAMAGE_PROBE_MAX_DISTANCE then
+        print(string.format("[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=distance distance=%.2f max=%.2f", runId, distance, DAMAGE_PROBE_MAX_DISTANCE))
+        return
+    end
+
+    local beforeHealth = healthValue(record.candidate)
+    local applied, applyErr = pcall(function()
+        record.candidate:applyDamage(DAMAGE_PROBE_AMOUNT)
+    end)
+    local afterHealth = healthValue(record.candidate)
+    local dead = isDead(record.candidate)
+
+    if not applied then
+        print(string.format("[ZombieFactions][%s][DAMAGE_PROBE] applyDamage error=%s", runId, tostring(applyErr)))
+        sendDamageResult(record, false, tostring(applyErr), beforeHealth, afterHealth, dead)
+        return
+    end
+
+    record.damageCooldown = DAMAGE_PROBE_COOLDOWN_TICKS
+    record.damageHits = (record.damageHits or 0) + 1
+
+    print(string.format(
+        "[ZombieFactions][%s][DAMAGE_PROBE] hit=%d subject=%d candidate=%d distance=%.2f amount=%.3f beforeHealth=%.3f afterHealth=%.3f candidateDead=%s",
+        runId,
+        record.damageHits,
+        record.subjectId,
+        record.candidateId,
+        distance,
+        DAMAGE_PROBE_AMOUNT,
+        beforeHealth,
+        afterHealth,
+        tostring(dead)
+    ))
+
+    sendDamageResult(record, true, "server applyDamage completed", beforeHealth, afterHealth, dead)
 end
 
 local function onTick()
@@ -352,6 +480,9 @@ local function onTick()
         local record = ZombieFactions.ActiveTargetProbes[i]
         record.remaining = record.remaining - 1
         record.sampleCountdown = record.sampleCountdown - 1
+        if record.damageCooldown > 0 then
+            record.damageCooldown = record.damageCooldown - 1
+        end
 
         if record.sampleCountdown <= 0 then
             record.sampleCountdown = TARGET_PROBE_SAMPLE_TICKS
@@ -485,8 +616,12 @@ local function handleSpawn(player, args)
 end
 
 local function onClientCommand(module, command, player, args)
-    if module ~= MODULE or command ~= SPAWN_COMMAND then return end
-    handleSpawn(player, args)
+    if module ~= MODULE then return end
+    if command == SPAWN_COMMAND then
+        handleSpawn(player, args)
+    elseif command == DAMAGE_PROBE_COMMAND then
+        handleDamageProbe(player, args)
+    end
 end
 
 Events.OnClientCommand.Add(onClientCommand)
