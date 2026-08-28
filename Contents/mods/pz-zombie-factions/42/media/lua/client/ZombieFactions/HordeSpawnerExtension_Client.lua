@@ -140,7 +140,6 @@ function ISSpawnHordeUI:createChildren()
     self:addChild(self.zfTargetProbe)
     self.zfTargetProbe:addOption("SPIKE: force nearest HOSTILE Vanilla zombie target")
     self.zfTargetProbe.selected[1] = false
-    self.zfTargetProbe:setTooltip("Diagnostic only. Requires Spawned faction -> Vanilla = HOSTILE. Forces one spawned test zombie to target/path toward the nearest Vanilla zombie within 12 tiles.")
 
     addHarnessBottomButtons(self, spacing, rowHeight)
 end
