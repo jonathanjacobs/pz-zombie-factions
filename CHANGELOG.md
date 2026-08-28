@@ -2,15 +2,17 @@
 
 ## 0.0.7 — 2026-08-28
 
-SPIKE-001 multiplayer ownership probe.
+SPIKE-001 multiplayer ownership and target-path boundary probe.
 
 - recorded the v0.0.6 dedicated-server result: faction/test-run assignment re-resolved correctly, but server-side `setTarget(...)` + `pathToCharacter(...)` only retained zombie targets briefly; every forced subject remained `idle`, never entered an attack state, and the target was cleared;
 - all successfully forced subjects reported `owner=admin`, making client ownership a primary unresolved variable rather than proving that `IsoZombie` categorically rejects another zombie as a target;
 - the v0.0.6 client observer loaded but produced no tagged-subject observations, so v0.0.7 no longer depends on zombie mod-data propagation to identify the test subject on the client;
-- the server now sends the selected subject/candidate online IDs and run metadata to the requesting client and passively observes the server-side state instead of forcing the target itself;
+- the server now sends the selected subject/candidate online IDs and run metadata to the requesting client and passively observes server-visible state instead of forcing the target itself;
 - the owning client resolves those IDs with a bounded diagnostic lookup, verifies local ownership, and performs Phase A: `setTarget(...)` + `pathToCharacter(...)`;
-- if Phase A remains idle/loses the target, Phase B calls `spotted(candidate, true)` before repeating target/path assignment, testing whether vanilla perception state is the missing gate;
-- added bounded client and server transition logs for ownership, remote status, target retention, state, attack status, distance, and death;
+- source/API research found a documented Build 42 defect in `spottedNew(...)` when the target is an `IsoZombie`, so the probe does not call `spotted()`/`spottedNew()` with zombie targets;
+- if Phase A stalls, Phase B uses the explicitly older `spottedOld(candidate, true)` path before repeating target/path assignment, purely as a bounded diagnostic of whether perception state is the missing gate;
+- if both target-specific phases stall, Phase C clears the target and calls `pathToLocationF(...)` toward the candidate coordinates to distinguish generic movement/pathing from zombie-target-specific path behavior;
+- added bounded client and server transition logs for ownership, remote status, target retention, state, attack status, distance, observed movement, and death;
 - retained the existing single SPIKE checkbox and the one-time bounded Vanilla-candidate scan; no production global zombie scan or target-clearing loop was introduced.
 
 ## 0.0.6 — 2026-08-27
