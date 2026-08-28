@@ -1,7 +1,7 @@
 id=pz-zombie-factions
 name=Zombie Factions
-description=Pre-alpha Build 42 zombie-faction framework with an admin diagnostic horde-spawn harness for controlled faction tests.
+description=Pre-alpha Build 42 zombie-faction framework with an admin diagnostic horde-spawn and direct target-probe harness.
 author=Jonathan Jacobs
 category=features
-modversion=0.0.5
+modversion=0.0.6
 versionMin=42.20.0
