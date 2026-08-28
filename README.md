@@ -25,7 +25,9 @@ Dedicated Build 42.20.4 testing has established two useful boundaries:
 - custom faction/test-run assignment resolves correctly immediately and again after a delayed server check;
 - server-side `IsoZombie:setTarget(otherZombie)` plus `pathToCharacter(otherZombie)` can store the zombie target briefly, but the tested subjects remained `idle`, never attacked, and cleared the target shortly afterward.
 
-Those forced subjects were client-owned. Version 0.0.7 therefore moves the active experiment to the zombie's owning client. The server selects one nearby Vanilla candidate and sends the exact subject/candidate online IDs to the requester. The owner then tests `setTarget + pathToCharacter`; if that still stalls, it tests `spotted(candidate, true) + setTarget + pathToCharacter`. Client and server both emit bounded transition diagnostics.
+Those forced subjects were client-owned. Version 0.0.7 therefore moves the active experiment to the zombie's owning client. The server selects one nearby Vanilla candidate and sends the exact subject/candidate online IDs to the requester. The owner then runs a bounded three-phase probe: direct target/path, an explicit `spottedOld(...)` perception fallback plus target/path, and—only if both target-specific phases stall—a raw `pathToLocationF(...)` control toward the candidate coordinates.
+
+The probe deliberately avoids `spotted()` / `spottedNew()` with zombie targets because Build 42 has a documented player-oriented defect in that path. The location-path phase is a diagnostic control only; it is not faction behavior. Client and server both emit bounded transition diagnostics.
 
 This is research instrumentation, not the production targeting architecture. Zombie Factions still does **not** claim working faction-aware target acquisition or zombie-vs-zombie combat until the complete acquisition, pursuit, attack, damage, death, and multiplayer synchronization chain is demonstrated.
 
