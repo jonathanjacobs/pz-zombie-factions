@@ -1,6 +1,6 @@
 # SPIKE-001 — Zombie Targeting and Combat Feasibility
 
-Status: Open — Horde test UI loads; v0.0.5 independent bottom controls awaiting runtime validation  
+Status: Open — v0.0.5 Horde test harness validated; assignment-resolution and targeting work next  
 Target: Project Zomboid Build 42.20.x
 
 ## Question
@@ -67,27 +67,53 @@ The client emits one bounded geometry line for these independent controls:
 [ZombieFactions][UI] windowHeight=<h> harnessSpawnY=<y> harnessRemoveY=<y> buttonWidth=<w>
 ```
 
-The custom faction-spawn command has not yet been runtime-validated because previous UI failures prevented any faction-aware Spawn click.
+### Runtime validation — 0.0.5
+
+Dedicated-server/client testing on Build 42.20.4 validated the diagnostic harness.
+
+Observed client geometry:
+
+```text
+[ZombieFactions][UI] windowHeight=668 harnessSpawnY=635 harnessRemoveY=603 buttonWidth=168
+```
+
+The independent bottom controls rendered correctly and the Horde Manager remained usable.
+
+The stock Vanilla spawn path continued to reach `CreateHorde2Command`, while custom faction spawns reached the Zombie Factions `spawnOne` path. Seven custom test runs completed successfully:
+
+- `SPIKE001-0001`: one `zf:test-red`, `FRIENDLY -> zf:vanilla`, reciprocal `FRIENDLY`;
+- `SPIKE001-0002` and `0003`: one `zf:test-red`, `HOSTILE -> zf:vanilla`, reciprocal `FRIENDLY`;
+- `SPIKE001-0004`: one `zf:test-blue`, `HOSTILE -> zf:vanilla`, reciprocal `FRIENDLY`;
+- `SPIKE001-0005`: one `zf:test-blue`, mutual `HOSTILE`;
+- `SPIKE001-0006`: one `zf:test-red`, mutual `HOSTILE`;
+- `SPIKE001-0007`: ten `zf:test-red`, mutual `HOSTILE`, `spawned=10 requested=10`.
+
+The client received a success result for every custom run, including the 10/10 spawn. No Zombie Factions Lua exception occurred during these spawn operations, and the server shut down normally afterward.
+
+This validates the UI, client-to-server command path, server permission/spawn path, faction selection transport, directional relationship transport/configuration, exact returned-zombie assignment success, result reply, and multi-zombie diagnostic spawning. It does **not** yet demonstrate that faction identity survives save/relevance transitions or that relationship policy affects zombie AI.
 
 ## First runtime test
 
 Use a quiet open area and an observing admin who is invisible/god/debug as needed so the player does not become the preferred zombie target.
 
-### A — Harness smoke test
+### A — Harness smoke test — PASSED in v0.0.5
 
-1. Open the normal admin **Horde Spawning** tool.
-2. Confirm the Zombie Factions controls and the new bottom Spawn/Remove/Close controls are visible.
-3. Confirm the client log contains the bounded `[ZombieFactions][UI]` geometry line.
-4. Leave `zf:vanilla` selected and spawn one zombie; confirm the ordinary vanilla path still works.
-5. Select `zf:test-red`, leave both relationships `FRIENDLY`, and spawn one zombie.
-6. Confirm the server log contains one bounded line with a `SPIKE001-####` run ID, requested/spawned counts, faction, and directional relationships.
-7. Confirm there is no Lua exception on server or client.
+Validated on Build 42.20.4:
 
-If this fails, stop here and fix the harness before testing combat.
+- Zombie Factions controls visible;
+- independent Spawn/Remove/Close controls visible;
+- bounded UI geometry emitted;
+- vanilla Horde spawning preserved;
+- custom red/blue faction spawning successful;
+- asymmetric and symmetric relationship pairs transported correctly;
+- one-zombie and ten-zombie custom spawns successful;
+- no Zombie Factions runtime exception during the test.
 
-### B — Assignment control
+### B — Assignment control — NEXT
 
-Spawn one `zf:test-red` subject and verify server-side faction resolution returns `zf:test-red`. Repeat with `zf:test-blue`. Ordinary unassigned zombies must resolve to `zf:vanilla`.
+Spawn one `zf:test-red` subject and verify server-side faction resolution returns `zf:test-red` from the spawned zombie after the immediate assignment path has completed. Repeat with `zf:test-blue`. Ordinary unassigned zombies must resolve to `zf:vanilla`.
+
+Then test the proposed persistence boundary separately: save/restart and/or relevance unload/reload must not be assumed to preserve assignment until demonstrated.
 
 ### C — Behavioral controls
 
