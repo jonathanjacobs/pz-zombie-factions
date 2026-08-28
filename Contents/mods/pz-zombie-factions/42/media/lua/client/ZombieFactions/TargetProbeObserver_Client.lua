@@ -6,7 +6,8 @@ local COMMAND = "TargetProbeInstruction"
 local RESOLVE_RETRY_TICKS = 90
 local RESOLVE_SCAN_INTERVAL_TICKS = 5
 local PHASE_B_DELAY_TICKS = 30
-local OBSERVE_DURATION_TICKS = 180
+local PHASE_C_DELAY_TICKS = 60
+local OBSERVE_DURATION_TICKS = 240
 
 local pending = {}
 local tracked = {}
@@ -98,6 +99,16 @@ local function findZombieByOnlineId(onlineId)
     return nil
 end
 
+local function noteProgress(record, state, attacking, distance)
+    if attacking or (state ~= "idle" and state ~= "unknown") then
+        record.aiProgressObserved = true
+    end
+
+    if record.initialDistance ~= math.huge and distance ~= math.huge and distance < record.initialDistance - 0.15 then
+        record.movementObserved = true
+    end
+end
+
 local function printSnapshot(record, phase, force)
     local subject = record.subject
     local candidate = record.candidate
@@ -112,6 +123,8 @@ local function printSnapshot(record, phase, force)
     local resolvedFaction = ZombieFactions.getZombieFaction(subject)
     local distance = distanceBetween(subject, candidate)
 
+    noteProgress(record, state, attacking, distance)
+
     local signature = table.concat({
         tostring(targetId),
         state,
@@ -121,11 +134,13 @@ local function printSnapshot(record, phase, force)
         owner,
         tostring(remote),
         tostring(resolvedFaction),
+        tostring(record.aiProgressObserved),
+        tostring(record.movementObserved),
     }, "|")
 
     if force or signature ~= record.lastSignature then
         print(string.format(
-            "[ZombieFactions][%s][CLIENT_OBSERVER] phase=%s subject=%d owner=%s remote=%s expectedFaction=%s resolvedFaction=%s target=%d expectedTarget=%d retained=%s state=%s attacking=%s distance=%.2f subjectDead=%s candidateDead=%s",
+            "[ZombieFactions][%s][CLIENT_OBSERVER] phase=%s subject=%d owner=%s remote=%s expectedFaction=%s resolvedFaction=%s target=%d expectedTarget=%d retained=%s state=%s attacking=%s distance=%.2f aiProgress=%s movement=%s subjectDead=%s candidateDead=%s",
             record.runId,
             phase,
             record.subjectId,
@@ -139,6 +154,8 @@ local function printSnapshot(record, phase, force)
             state,
             tostring(attacking),
             distance,
+            tostring(record.aiProgressObserved),
+            tostring(record.movementObserved),
             tostring(subjectDead),
             tostring(candidateDead)
         ))
@@ -146,14 +163,19 @@ local function printSnapshot(record, phase, force)
     end
 end
 
-local function forceTarget(record, phase, useSpotted)
+local function forceTargetPath(record, phase, useSpottedOld)
     local subject = record.subject
     local candidate = record.candidate
 
     local spottedOk, spottedErr = nil, nil
-    if useSpotted then
+    if useSpottedOld then
+        -- Do not call spotted()/spottedNew() with an IsoZombie target in this probe.
+        -- B42 has a documented player-only assumption in spottedNew that can throw
+        -- for zombie targets when sight is obstructed by a vehicle. The older path
+        -- is used only as a bounded diagnostic to test whether perception state is
+        -- the missing gate before target/path processing.
         spottedOk, spottedErr = pcall(function()
-            subject:spotted(candidate, true)
+            subject:spottedOld(candidate, true)
         end)
     end
 
@@ -169,7 +191,7 @@ local function forceTarget(record, phase, useSpotted)
     end
 
     print(string.format(
-        "[ZombieFactions][%s][OWNER_PROBE] phase=%s subject=%d owner=%s remote=%s candidate=%d distance=%.2f spotted=%s setTarget=%s pathToCharacter=%s retained=%s state=%s attacking=%s",
+        "[ZombieFactions][%s][OWNER_PROBE] phase=%s subject=%d owner=%s remote=%s candidate=%d distance=%.2f spottedOld=%s setTarget=%s pathToCharacter=%s retained=%s state=%s attacking=%s",
         record.runId,
         phase,
         record.subjectId,
@@ -177,7 +199,7 @@ local function forceTarget(record, phase, useSpotted)
         tostring(isRemoteZombie(subject)),
         record.candidateId,
         distanceBetween(subject, candidate),
-        useSpotted and tostring(spottedOk) or "not-called",
+        useSpottedOld and tostring(spottedOk) or "not-called",
         tostring(setOk),
         tostring(pathOk),
         tostring(currentTarget(subject) == candidate),
@@ -185,8 +207,8 @@ local function forceTarget(record, phase, useSpotted)
         tostring(isAttacking(subject, candidate))
     ))
 
-    if useSpotted and not spottedOk then
-        print(string.format("[ZombieFactions][%s][OWNER_PROBE] spotted error=%s", record.runId, tostring(spottedErr)))
+    if useSpottedOld and not spottedOk then
+        print(string.format("[ZombieFactions][%s][OWNER_PROBE] spottedOld error=%s", record.runId, tostring(spottedErr)))
     end
     if not setOk then
         print(string.format("[ZombieFactions][%s][OWNER_PROBE] setTarget error=%s", record.runId, tostring(setErr)))
@@ -196,14 +218,53 @@ local function forceTarget(record, phase, useSpotted)
     end
 end
 
+local function runLocationPathControl(record)
+    local subject = record.subject
+    local candidate = record.candidate
+
+    local clearOk, clearErr = pcall(function()
+        subject:setTarget(nil)
+    end)
+    local pathOk, pathErr = pcall(function()
+        subject:pathToLocationF(candidate:getX(), candidate:getY(), candidate:getZ())
+    end)
+
+    print(string.format(
+        "[ZombieFactions][%s][OWNER_PROBE] phase=owner-location-path subject=%d owner=%s remote=%s candidate=%d distance=%.2f clearTarget=%s pathToLocationF=%s target=%d state=%s attacking=%s",
+        record.runId,
+        record.subjectId,
+        ownerUsername(subject),
+        tostring(isRemoteZombie(subject)),
+        record.candidateId,
+        distanceBetween(subject, candidate),
+        tostring(clearOk),
+        tostring(pathOk),
+        targetOnlineId(currentTarget(subject)),
+        zombieState(subject),
+        tostring(isAttacking(subject, candidate))
+    ))
+
+    if not clearOk then
+        print(string.format("[ZombieFactions][%s][OWNER_PROBE] clearTarget error=%s", record.runId, tostring(clearErr)))
+    end
+    if not pathOk then
+        print(string.format("[ZombieFactions][%s][OWNER_PROBE] pathToLocationF error=%s", record.runId, tostring(pathErr)))
+    end
+end
+
 local function beginOwnerProbe(record)
     tracked[record.subjectId] = record
     record.phaseBTicks = PHASE_B_DELAY_TICKS
+    record.phaseCTicks = PHASE_C_DELAY_TICKS
     record.remaining = OBSERVE_DURATION_TICKS
     record.lastSignature = nil
     record.phaseBDone = false
+    record.phaseCDone = false
+    record.aiProgressObserved = false
+    record.movementObserved = false
+    record.initialDistance = distanceBetween(record.subject, record.candidate)
 
-    forceTarget(record, "owner-target-path", false)
+    forceTargetPath(record, "owner-target-path", false)
     printSnapshot(record, "phase-a", true)
 end
 
@@ -310,17 +371,44 @@ local function onTick()
                 local state = zombieState(record.subject)
                 local attacking = isAttacking(record.subject, record.candidate)
 
-                if retained and (attacking or state ~= "idle") then
+                if record.aiProgressObserved or attacking or (retained and state ~= "idle") then
                     print(string.format(
-                        "[ZombieFactions][%s][OWNER_PROBE] phase=owner-spotted-target-path skipped=true reason=phase-a-progress retained=%s state=%s attacking=%s",
+                        "[ZombieFactions][%s][OWNER_PROBE] phase=owner-spottedOld-target-path skipped=true reason=phase-a-progress retained=%s state=%s attacking=%s aiProgress=%s movement=%s",
                         record.runId,
                         tostring(retained),
                         state,
-                        tostring(attacking)
+                        tostring(attacking),
+                        tostring(record.aiProgressObserved),
+                        tostring(record.movementObserved)
                     ))
                 else
-                    forceTarget(record, "owner-spotted-target-path", true)
+                    forceTargetPath(record, "owner-spottedOld-target-path", true)
                     printSnapshot(record, "phase-b", true)
+                end
+            end
+        end
+
+        if not record.phaseCDone then
+            record.phaseCTicks = record.phaseCTicks - 1
+            if record.phaseCTicks <= 0 then
+                record.phaseCDone = true
+                local retained = currentTarget(record.subject) == record.candidate
+                local state = zombieState(record.subject)
+                local attacking = isAttacking(record.subject, record.candidate)
+
+                if record.aiProgressObserved or record.movementObserved or attacking or (retained and state ~= "idle") then
+                    print(string.format(
+                        "[ZombieFactions][%s][OWNER_PROBE] phase=owner-location-path skipped=true reason=target-path-progress retained=%s state=%s attacking=%s aiProgress=%s movement=%s",
+                        record.runId,
+                        tostring(retained),
+                        state,
+                        tostring(attacking),
+                        tostring(record.aiProgressObserved),
+                        tostring(record.movementObserved)
+                    ))
+                else
+                    runLocationPathControl(record)
+                    printSnapshot(record, "phase-c", true)
                 end
             end
         end
