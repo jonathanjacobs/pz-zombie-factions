@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.8 — 2026-08-28
+
+SPIKE-001 attack-state and server-authoritative impact probe.
+
+- recorded the v0.0.7 dedicated-server result: owner-side `setTarget(...) + pathToCharacter(...)` successfully retained another `IsoZombie` target and advanced through `walktoward`, `lunge`, `face-target`, and `attack` states;
+- `isZombieAttacking(candidate)` repeatedly became true at melee range, demonstrating that Build 42 can drive a client-owned zombie through native pursuit and attack-state logic against another zombie;
+- no candidate health/death change was observed during those native attack states, isolating the next blocker to hit/damage/death handling rather than target retention or pursuit;
+- server observation saw the same state transitions but did not retain the client-side zombie target, and the client repeatedly logged `NetworkZombieMind: goal character is not set`, confirming that native MP mind synchronization is not representing the zombie target cleanly;
+- client-side faction lookup still resolved the tagged test subject as `zf:vanilla` while the server correctly resolved the custom faction, so production client identity cannot rely on zombie `modData` propagation alone;
+- added a bounded client `ImpactProbe` that listens only to explicit SPIKE subject/candidate IDs and requests a server impact on a rising native attack event at melee distance;
+- the server validates active run IDs, ownership, exact online IDs, server-side faction identity, HOSTILE relationship, candidate faction, distance, cooldown, and liveness before calling `IsoGameCharacter.applyDamage(0.25)` on the Vanilla candidate;
+- server/client diagnostics report candidate health before/after each accepted impact and whether the candidate dies, allowing the next runtime test to determine whether server-side zombie health/death changes synchronize without a native zombie-to-zombie hit packet;
+- the impact probe is research instrumentation only; it is not yet the production combat/damage architecture.
+
 ## 0.0.7 — 2026-08-28
 
 SPIKE-001 multiplayer ownership and target-path boundary probe.
