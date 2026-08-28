@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.0.6 — 2026-08-27
+
+SPIKE-001 assignment validation and direct target probe.
+
+- recorded the successful v0.0.5 dedicated-server harness test: custom Red/Blue spawns, asymmetric relationships, symmetric hostility, and multi-zombie requests all completed without Zombie Factions Lua errors;
+- independently re-resolves faction and SPIKE run metadata immediately after assignment and again after a short delay for up to 10 sampled subjects per test run;
+- added an opt-in admin `SPIKE: force nearest HOSTILE Vanilla zombie target` control;
+- for that explicit diagnostic only, the server finds the nearest living `zf:vanilla` zombie within 12 tiles, calls `setTarget(...)` and `pathToCharacter(...)`, then emits bounded state/target/attack-transition observations;
+- added a client `OnZombieUpdate` observer that exits immediately for ordinary zombies and logs only state changes for explicitly tagged SPIKE subjects, allowing client-side mod-data propagation and ownership/target behavior to be verified;
+- the direct-target scan is diagnostic research only and is not the production faction targeting architecture;
+- added otherwise-empty `AnimSets` and `actiongroups` directories under the common and Build 42 media roots to avoid Build 42 `AdvancedAnimator` missing-directory startup stack traces.
+
 ## 0.0.5 — 2026-08-27
 
 SPIKE-001 Horde Spawner control replacement.
