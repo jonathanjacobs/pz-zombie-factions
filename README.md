@@ -3,7 +3,7 @@
 **A Project Zomboid Build 42 framework for assigning zombies to factions and defining directional Friendly, Neutral, and Hostile relationships between zombie factions and player factions.**
 
 Status: **Research / Pre-Alpha**  
-Current version: **v0.0.5**  
+Current version: **v0.0.6**  
 Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Scope
@@ -18,11 +18,14 @@ The first milestone is intentionally narrow:
 - relationships can target other zombie factions, Project Zomboid player factions, or unfactioned players;
 - default installation preserves vanilla zombie behavior.
 
-Version 0.0.5 contains the SPIKE-001 diagnostic harness. The built-in admin Horde Spawning window is extended with `zf:test-red` / `zf:test-blue` selections plus directional relationship controls to `zf:vanilla`. Custom test spawns are server-authoritative and require the same `CreateHorde` capability used by vanilla horde spawning.
+Version 0.0.6 contains the active SPIKE-001 diagnostic harness. The built-in admin Horde Spawning window is extended with `zf:test-red` / `zf:test-blue` selections, directional relationship controls to `zf:vanilla`, and an opt-in direct-target probe. Custom test spawns are server-authoritative and require the same `CreateHorde` capability used by vanilla horde spawning.
 
-After repeated runtime failures involving the vanilla bottom-button anchoring lifecycle, v0.0.5 no longer depends on repositioning those controls. The extension creates its own Spawn, Remove Zombies, Remove Bodies, and Close controls after the extended window geometry is final. They call the existing Horde Spawning handlers, so Vanilla still follows the normal PZ spawn path while diagnostic factions use the Zombie Factions server command.
+The v0.0.5 Horde Spawner harness has been validated on a Build 42.20.4 dedicated server/client pair. Version 0.0.6 adds two research checks on top of that working harness:
 
-The harness creates deterministic faction-tagged test subjects; it does **not** yet implement faction-aware target acquisition or zombie-vs-zombie combat. Those are the behaviors SPIKE-001 is intended to investigate.
+- independently re-resolve faction/test-run metadata immediately and shortly after spawn, with client-side observation of tagged subjects;
+- optionally force one HOSTILE test zombie to target and path toward the nearest Vanilla zombie within 12 tiles, then observe target retention, AI state, ownership, attack state, and death transitions.
+
+The direct-target probe deliberately bypasses normal target discovery. It is a bounded SPIKE experiment, not the production targeting architecture. Zombie Factions still does **not** claim working faction-aware target acquisition or zombie-vs-zombie combat until the complete acquisition, pursuit, attack, damage, death, and multiplayer synchronization chain is demonstrated.
 
 ## Project docs
 
