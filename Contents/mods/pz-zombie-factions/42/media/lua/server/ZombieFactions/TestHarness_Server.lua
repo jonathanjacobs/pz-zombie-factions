@@ -3,7 +3,8 @@ if isClient() then return end
 require "ZombieFactions/Assignment"
 
 local MODULE = "ZombieFactions"
-local COMMAND = "SpawnTestHorde"
+local SPAWN_COMMAND = "SpawnTestHorde"
+local TARGET_PROBE_COMMAND = "TargetProbeInstruction"
 local VANILLA = ZombieFactions.Faction.VANILLA
 local TEST_RED = ZombieFactions.Faction.TEST_RED
 local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
@@ -21,7 +22,7 @@ ZombieFactions.PendingAssignmentValidations = ZombieFactions.PendingAssignmentVa
 ZombieFactions.PendingTargetProbes = ZombieFactions.PendingTargetProbes or {}
 ZombieFactions.ActiveTargetProbes = ZombieFactions.ActiveTargetProbes or {}
 
-print("[ZombieFactions] Server test harness loaded v0.0.6")
+print("[ZombieFactions] Server test harness loaded v0.0.7")
 
 local function reply(player, ok, message, data)
     if not player then return end
@@ -62,20 +63,14 @@ local function isAllowedDiagnosticFaction(factionId)
 end
 
 local function configureRelationships(factionId, toVanilla, fromVanilla, symmetric)
-    if factionId == VANILLA then
-        return true
-    end
-
-    if symmetric then
-        fromVanilla = toVanilla
-    end
+    if factionId == VANILLA then return true end
+    if symmetric then fromVanilla = toVanilla end
 
     local ok, err = ZombieFactions.setRelationship(factionId, VANILLA, toVanilla)
     if not ok then return false, err end
 
     ok, err = ZombieFactions.setRelationship(VANILLA, factionId, fromVanilla)
     if not ok then return false, err end
-
     return true
 end
 
@@ -166,14 +161,13 @@ local function spawnOne(args, x, y, z)
     local outfit = args.outfit
     if outfit == "" then outfit = nil end
 
-    local femaleChance = tonumber(args.femaleChance)
     local spawned = addZombiesInOutfit(
         x,
         y,
         z,
         1,
         outfit,
-        femaleChance,
+        tonumber(args.femaleChance),
         args.crawler == true,
         args.isFallOnFront == true,
         args.isFakeDead == true,
@@ -187,9 +181,7 @@ local function spawnOne(args, x, y, z)
         args.onFire == true
     )
 
-    if not spawned or spawned:size() == 0 then
-        return nil
-    end
+    if not spawned or spawned:size() == 0 then return nil end
     return spawned:get(0)
 end
 
@@ -205,8 +197,7 @@ end
 local function findNearestVanillaZombie(subject, radius)
     if not subject then return nil, math.huge end
 
-    -- SPIKE-001 only: one explicit, bounded-radius probe may inspect the current
-    -- zombie list to find a candidate. This is not the production targeting design.
+    -- SPIKE-001 only: one bounded candidate scan. This is not production targeting.
     local zombies = getCell():getZombieList()
     if not zombies then return nil, math.huge end
 
@@ -230,7 +221,7 @@ local function findNearestVanillaZombie(subject, radius)
     return best, bestDist2
 end
 
-local function beginDirectTargetProbe(record)
+local function beginOwnerTargetProbe(record)
     local subject = record.subject
     if not subject or isDead(subject) then
         print(string.format("[ZombieFactions][%s][TARGET_PROBE] subject unavailable before probe", record.runId))
@@ -248,45 +239,30 @@ local function beginDirectTargetProbe(record)
         return
     end
 
-    local setOk, setErr = pcall(function()
-        subject:setTarget(candidate)
-    end)
-
-    local pathOk, pathErr = false, nil
-    if setOk then
-        pathOk, pathErr = pcall(function()
-            subject:pathToCharacter(candidate)
-        end)
-    end
-
-    local retained = currentTarget(subject) == candidate
-    local attacking = isZombieAttackingTarget(subject, candidate)
     local subjectId = zombieOnlineId(subject)
     local candidateId = zombieOnlineId(candidate)
+    local owner = ownerUsername(subject)
 
     print(string.format(
-        "[ZombieFactions][%s][TARGET_PROBE] phase=forced subject=%d faction=%s owner=%s candidate=%d candidateFaction=%s distance=%.2f setTarget=%s pathToCharacter=%s retained=%s state=%s attacking=%s",
+        "[ZombieFactions][%s][TARGET_PROBE] phase=dispatch subject=%d faction=%s owner=%s candidate=%d candidateFaction=%s distance=%.2f requester=%s",
         record.runId,
         subjectId,
         ZombieFactions.getZombieFaction(subject),
-        ownerUsername(subject),
+        owner,
         candidateId,
         ZombieFactions.getZombieFaction(candidate),
         math.sqrt(dist2),
-        tostring(setOk),
-        tostring(pathOk),
-        tostring(retained),
-        zombieState(subject),
-        tostring(attacking)
+        tostring(record.requester)
     ))
 
-    if not setOk then
-        print(string.format("[ZombieFactions][%s][TARGET_PROBE] setTarget error=%s", record.runId, tostring(setErr)))
-        return
-    end
-    if not pathOk then
-        print(string.format("[ZombieFactions][%s][TARGET_PROBE] pathToCharacter error=%s", record.runId, tostring(pathErr)))
-    end
+    sendServerCommand(MODULE, TARGET_PROBE_COMMAND, {
+        requester = record.requester,
+        runId = record.runId,
+        subjectId = subjectId,
+        candidateId = candidateId,
+        factionId = ZombieFactions.getZombieFaction(subject),
+        owner = owner,
+    })
 
     ZombieFactions.ActiveTargetProbes[#ZombieFactions.ActiveTargetProbes + 1] = {
         runId = record.runId,
@@ -323,7 +299,7 @@ local function sampleActiveProbe(record, final)
 
     if final or signature ~= record.lastSignature then
         print(string.format(
-            "[ZombieFactions][%s][TARGET_PROBE] phase=%s subject=%d owner=%s target=%d expectedTarget=%d retained=%s state=%s attacking=%s distance=%.2f subjectDead=%s candidateDead=%s",
+            "[ZombieFactions][%s][SERVER_OBSERVER] phase=%s subject=%d owner=%s target=%d expectedTarget=%d retained=%s state=%s attacking=%s distance=%.2f subjectDead=%s candidateDead=%s",
             record.runId,
             final and "final" or "observe",
             record.subjectId,
@@ -367,7 +343,7 @@ local function onTick()
         local record = ZombieFactions.PendingTargetProbes[i]
         record.ticks = record.ticks - 1
         if record.ticks <= 0 then
-            beginDirectTargetProbe(record)
+            beginOwnerTargetProbe(record)
             table.remove(ZombieFactions.PendingTargetProbes, i)
         end
     end
@@ -472,6 +448,7 @@ local function handleSpawn(player, args)
         ZombieFactions.PendingTargetProbes[#ZombieFactions.PendingTargetProbes + 1] = {
             runId = runId,
             subject = firstAssignedZombie,
+            requester = player:getUsername(),
             ticks = TARGET_PROBE_DELAY_TICKS,
         }
     end
@@ -508,7 +485,7 @@ local function handleSpawn(player, args)
 end
 
 local function onClientCommand(module, command, player, args)
-    if module ~= MODULE or command ~= COMMAND then return end
+    if module ~= MODULE or command ~= SPAWN_COMMAND then return end
     handleSpawn(player, args)
 end
 
