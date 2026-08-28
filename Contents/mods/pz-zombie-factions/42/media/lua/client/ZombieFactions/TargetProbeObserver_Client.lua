@@ -247,9 +247,10 @@ local function onServerCommand(module, command, args)
         return
     end
 
-    local subjectId = tonumber(args.subjectId) or -1
-    local candidateId = tonumber(args.candidateId) or -1
-    if subjectId < 0 or candidateId < 0 then
+    -- IsoZombie online IDs are Java shorts and may legitimately be negative.
+    local subjectId = tonumber(args.subjectId)
+    local candidateId = tonumber(args.candidateId)
+    if subjectId == nil or candidateId == nil then
         print("[ZombieFactions] target-probe instruction rejected: invalid zombie online IDs")
         return
     end
