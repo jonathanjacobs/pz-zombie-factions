@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.7 — 2026-08-28
+
+SPIKE-001 multiplayer ownership probe.
+
+- recorded the v0.0.6 dedicated-server result: faction/test-run assignment re-resolved correctly, but server-side `setTarget(...)` + `pathToCharacter(...)` only retained zombie targets briefly; every forced subject remained `idle`, never entered an attack state, and the target was cleared;
+- all successfully forced subjects reported `owner=admin`, making client ownership a primary unresolved variable rather than proving that `IsoZombie` categorically rejects another zombie as a target;
+- the v0.0.6 client observer loaded but produced no tagged-subject observations, so v0.0.7 no longer depends on zombie mod-data propagation to identify the test subject on the client;
+- the server now sends the selected subject/candidate online IDs and run metadata to the requesting client and passively observes the server-side state instead of forcing the target itself;
+- the owning client resolves those IDs with a bounded diagnostic lookup, verifies local ownership, and performs Phase A: `setTarget(...)` + `pathToCharacter(...)`;
+- if Phase A remains idle/loses the target, Phase B calls `spotted(candidate, true)` before repeating target/path assignment, testing whether vanilla perception state is the missing gate;
+- added bounded client and server transition logs for ownership, remote status, target retention, state, attack status, distance, and death;
+- retained the existing single SPIKE checkbox and the one-time bounded Vanilla-candidate scan; no production global zombie scan or target-clearing loop was introduced.
+
 ## 0.0.6 — 2026-08-27
 
 SPIKE-001 assignment validation and direct target probe.
