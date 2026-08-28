@@ -1,6 +1,6 @@
 # SPIKE-001 — Zombie Targeting and Combat Feasibility
 
-Status: Open — v0.0.6 isolated server-target failure; v0.0.7 tests client ownership/perception  
+Status: Open — v0.0.6 isolated server-target failure; v0.0.7 tests owner-side target, perception, and raw path boundaries  
 Target: Project Zomboid Build 42.20.x
 
 ## Question
@@ -18,12 +18,15 @@ Do not claim zombie-vs-zombie combat until target acquisition, pursuit, attack, 
 Current Build 42 JavaDocs expose:
 
 - `IsoZombie.setTarget(IsoMovingObject)` / `getTarget()`;
-- `IsoZombie.spotted(IsoMovingObject, boolean)`;
+- `IsoZombie.spotted(...)`, `spottedNew(...)`, and `spottedOld(...)`;
 - `IsoZombie.pathToCharacter(IsoGameCharacter)`;
+- `IsoZombie.pathToLocationF(float, float, float)`;
 - `IsoZombie.isZombieAttacking(IsoMovingObject)`;
 - `IsoZombie.getOnlineID()`, `getOwnerPlayer()`, `isRemoteZombie()`, and `getRealState()`.
 
 These signatures permit another `IsoZombie` to be passed at the type level. They do not prove that downstream AI state transitions or multiplayer combat packets support zombie-to-zombie combat.
+
+A public Build 42.17 Indie Stone bug report documents a specific `spottedNew(...)` defect when the argument is an `IsoZombie`: the routine contains player-oriented logic and can dereference missing player state when view is obstructed by a vehicle. Because current B42 exposes both `spottedNew` and `spottedOld`, the SPIKE avoids `spotted()`/`spottedNew()` with zombie targets. `spottedOld(...)` is used only as a bounded diagnostic to test whether perception state is a missing gate; it is not proposed as the production acquisition path.
 
 Current multiplayer API documentation is also a warning sign for the later damage stage: `GameClient.sendZombieHit(...)` takes an `IsoPlayer` target, and the documented packet enum contains `ZombieHitPlayer` but no corresponding `ZombieHitZombie` entry. Treat this as strong evidence that native zombie-vs-zombie damage networking may require a custom server-authoritative path, not as proof until the pursuit/attack layers are tested.
 
@@ -71,11 +74,12 @@ Therefore v0.0.6 does **not** distinguish between:
 
 1. the owning client overwriting a server-injected target;
 2. vanilla AI/perception logic rejecting a zombie target;
-3. a required internal perception/alert state not being initialized by `setTarget + pathToCharacter` alone.
+3. target-specific pathing refusing to transition for another zombie;
+4. a required internal perception/alert state not being initialized by `setTarget + pathToCharacter` alone.
 
 The v0.0.6 client observer itself loaded, but the runtime client log contained no `CLIENT_OBSERVER` entries. It depended on the server-assigned SPIKE mod-data tag being visible on the client zombie instance. v0.0.7 removes that dependency and addresses subjects by network online ID instead.
 
-## v0.0.7 experiment — owner-side two-phase probe
+## v0.0.7 experiment — owner-side three-phase boundary probe
 
 The UI remains unchanged: check `SPIKE: force nearest HOSTILE Vanilla zombie target` with `spawned faction -> Vanilla = HOSTILE`.
 
@@ -99,25 +103,44 @@ subject:setTarget(candidate)
 subject:pathToCharacter(candidate)
 ```
 
-The client logs target retention, real state, attack state, ownership, `isRemoteZombie`, distance, and death.
+The client logs target retention, real state, attack state, ownership, `isRemoteZombie`, distance, movement, and death.
 
-### Phase B — owner perception + target/path
+### Phase B — owner `spottedOld` + target/path
 
-If Phase A remains idle or loses the target, the owner then tests:
+If Phase A remains idle or loses the target, the owner tests:
 
 ```text
-subject:spotted(candidate, true)
+subject:spottedOld(candidate, true)
 subject:setTarget(candidate)
 subject:pathToCharacter(candidate)
 ```
 
-If Phase A has already produced a non-idle/attack transition with the expected target retained, Phase B is skipped so the successful state is not disturbed.
+`spotted()` / `spottedNew()` are intentionally not used because of the documented Build 42 zombie-target defect described above.
+
+If Phase A has already produced a non-idle/attack transition, Phase B is skipped so a successful state is not disturbed.
+
+### Phase C — raw location-path control
+
+If neither target-specific phase produces AI progress or measurable movement, the owner clears the target and calls:
+
+```text
+subject:setTarget(nil)
+subject:pathToLocationF(candidate:getX(), candidate:getY(), candidate:getZ())
+```
+
+This is not a hostility behavior. It is a control that answers a narrower question: **can the same client-owned zombie enter ordinary movement/pathing toward those coordinates when no zombie target is involved?**
+
+Interpretation:
+
+- Phase C moves while A/B do not: generic pathing works; the blocker is target/perception validation specific to zombie targets.
+- Phase C also remains idle: ownership or client-side path command semantics remain suspect, and the probe has not yet isolated zombie-target validation.
 
 ## How to interpret v0.0.7
 
 - **Owner Phase A succeeds:** v0.0.6 was primarily an MP authority/ownership problem. Continue tracing the owner-driven pursuit into attack state.
-- **Phase A fails, Phase B succeeds:** `setTarget` alone is insufficient; vanilla perception/`spotted` state is a required part of target acquisition.
-- **Both phases briefly retain then clear the zombie target while staying idle:** strong evidence that normal zombie AI validates/filters the target or attack intent beyond the public setters. Trace the exact target-clearing state transition in the decompiled source before implementing discovery.
+- **Phase A fails, Phase B succeeds:** target assignment alone is insufficient; perception state materially changes pursuit behavior. The production path still must avoid the known `spottedNew` zombie-target defect.
+- **A/B fail, Phase C moves:** strong evidence that B42's target/perception path rejects or fails to activate another zombie even though generic movement works.
+- **A/B/C all remain idle:** do not infer target rejection yet; trace ownership/path command authority more deeply.
 - **Pursuit works but attack never starts:** the next blocker is attack-state target assumptions.
 - **Attack animation/state works but no damage is delivered:** expect a custom server-authoritative zombie-vs-zombie damage path to be necessary, especially given the documented network packet surface.
 
@@ -143,7 +166,8 @@ Useful v0.0.7 markers are:
 [OWNER_PROBE] instruction
 [OWNER_PROBE] resolved
 [OWNER_PROBE] phase=owner-target-path
-[OWNER_PROBE] phase=owner-spotted-target-path
+[OWNER_PROBE] phase=owner-spottedOld-target-path
+[OWNER_PROBE] phase=owner-location-path
 [CLIENT_OBSERVER]
 [SERVER_OBSERVER]
 ```
