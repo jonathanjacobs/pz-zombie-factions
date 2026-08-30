@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.30 — 2026-08-30
+
+Native bumped-state faction-bite probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- replaces the rejected custom `zombiefactions-attack-network` presentation route with a `BumpType=Bite` node in the existing zombie `bumped` animation set, reusing the shipped `Zombie_Bite_Start` clip;
+- arms the bite only for a validated, locally owned faction attacker inside the existing melee envelope and lets `OnCharacterCollide` become the only client-side damage-request trigger;
+- keeps faction policy, ownership, range, cooldown, pending-hit, target-owner application, acknowledgment, and server-finalized death checks intact; no animation event carries damage authority;
+- adds explicit `biteBumpsArmed`, `biteCollisions`, and `biteBumpsExpired` diagnostics so the next test can distinguish a missing collision from a rejected server hit.
+
 ## 0.0.29 — 2026-08-30
 
 Build 42 custom faction-combat action-state probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).

@@ -11,7 +11,6 @@ local DAMAGE_PROBE_COMMAND = "TargetProbeAttack"
 local DAMAGE_APPLY_COMMAND = "TargetProbeApplyDamage"
 local DAMAGE_ACK_COMMAND = "TargetProbeDamageAck"
 local DAMAGE_RESULT_COMMAND = "TargetProbeDamageResult"
-local PRESENTATION_COMMAND = "TargetProbeCombatPresentation"
 local VANILLA = ZombieFactions.Faction.VANILLA
 local TEST_RED = ZombieFactions.Faction.TEST_RED
 local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
@@ -60,7 +59,7 @@ ZombieFactions.PendingMobWakeups = ZombieFactions.PendingMobWakeups or {}
 ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
-alwaysPrint("[ZombieFactions] Server test harness loaded v0.0.29")
+alwaysPrint("[ZombieFactions] Server test harness loaded v0.0.30")
 
 local function print(message)
     if SERVER_VERBOSE_DIAGNOSTICS then alwaysPrint(message) end
@@ -1502,16 +1501,6 @@ local function handleDamageProbe(player, args)
     }
     record.damageCooldown = DAMAGE_PROBE_COOLDOWN_TICKS
     countPerformance("damageDispatched")
-
-    -- A validated dispatch is the only presentation trigger. The payload has
-    -- no authority to select targets or apply damage; clients use it only to
-    -- render the already validated close-range pair locally.
-    sendServerCommand(MODULE, PRESENTATION_COMMAND, {
-        runId = runId,
-        hitId = hitId,
-        subjectId = record.subjectId,
-        candidateId = record.candidateId,
-    })
 
     print(string.format(
         "[ZombieFactions][%s][DAMAGE_PROBE] phase=dispatch hitId=%s subject=%d candidate=%d targetOwner=%s distance=%.2f amount=%.3f serverBeforeHealth=%.3f",

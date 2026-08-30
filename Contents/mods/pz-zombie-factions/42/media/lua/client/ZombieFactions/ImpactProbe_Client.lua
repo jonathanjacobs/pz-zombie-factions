@@ -8,32 +8,24 @@ local IMPACT_COMMAND = "TargetProbeAttack"
 local APPLY_COMMAND = "TargetProbeApplyDamage"
 local ACK_COMMAND = "TargetProbeDamageAck"
 local RESULT_COMMAND = "TargetProbeDamageResult"
-local PRESENTATION_COMMAND = "TargetProbeCombatPresentation"
 
 local MAX_DISTANCE = 0.90
 local RESOLVE_TICKS = 120
 local REQUEST_COOLDOWN_TICKS = 60
-local ATTACK_WINDUP_BASE_TICKS = 18
-local ATTACK_WINDUP_STAGGER_TICKS = 12
 local CLIENT_TICKS_PER_SECOND = 60
 local TRACK_TICKS = 60 * CLIENT_TICKS_PER_SECOND
 local PROCESSED_OWNER_HIT_LIMIT = 256
 local MIN_SAFE_TARGET_DISTANCE = 0.10
-local PRESENTATION_DURATION_TICKS = 180
-local PRESENTATION_RESOLVE_TICKS = 120
-local PRESENTATION_MAX_DISTANCE = 1.25
-local PRESENTATION_VARIABLE = "ZombieFactionsAttackPresentation"
-local PRESENTATION_PHASE_VARIABLE = "ZombieFactionsAttackPhase"
+local BITE_BUMP_TYPE = "Bite"
+local BITE_ARM_TICKS = 20
 
 local pending = {}
 local tracked = {}
 local pendingOwnerHits = {}
 local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
-local pendingPresentations = {}
-local activePresentations = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.29")
+print("[ZombieFactions] Client impact probe loaded v0.0.30")
 
 local function print(message)
     CombatController.detail(message)
@@ -93,23 +85,16 @@ local function findZombie(id)
     return CombatController.findZombie(id)
 end
 
-local function recoverInvalidAttackBump(zombie)
-    if not zombie then return false end
-    local bumpType = string.lower(tostring(safeCall("", function()
-        return zombie:getBumpType()
-    end)))
-    if bumpType ~= "bite" and bumpType ~= "bitelow" then return false end
-
-    local recovered = safeCall(false, function()
-        zombie:setVariable("BumpAnimFinished", true)
-        zombie:setBumpDone(true)
-        zombie:setBumpType("")
+local function clearExpiredFactionBite(record)
+    if not record.subject or record.bumpTicks == nil then return end
+    record.bumpTicks = nil
+    safeCall(false, function()
+        record.subject:setVariable("BumpAnimFinished", true)
+        record.subject:setBumpDone(true)
+        record.subject:setBumpType("")
         return true
-    end) == true
-    if recovered then
-        CombatController.increment("invalidAttackBumpsRecovered")
-    end
-    return recovered
+    end)
+    CombatController.increment("biteBumpsExpired")
 end
 
 local function resolve(record)
@@ -131,9 +116,7 @@ local function resolve(record)
         )
     end
     record.cooldown = 0
-    record.lastAttacking = false
-    record.attackTicks = nil
-    recoverInvalidAttackBump(subject)
+    record.bumpTicks = nil
     tracked[record.subjectId] = record
 
     print(string.format(
@@ -238,78 +221,6 @@ local function sameLevel(a, b)
     return math.abs(a:getZ() - b:getZ()) < 0.2
 end
 
-local function beginPresentation(record)
-    local subject = findZombie(record.subjectId)
-    local candidate = findZombie(record.candidateId)
-    if not subject or not candidate then return false end
-    if isDead(subject) or isDead(candidate)
-        or not sameLevel(subject, candidate)
-        or distance(subject, candidate) > PRESENTATION_MAX_DISTANCE
-    then
-        CombatController.increment("presentationSuppressed")
-        return true
-    end
-
-    local current = safeCall(nil, function() return subject:getTarget() end)
-    if current ~= nil and current ~= candidate then
-        -- Never replace a locally meaningful vanilla target (especially a
-        -- player) merely to show a faction-combat cue.
-        CombatController.increment("presentationSuppressed")
-        return true
-    end
-
-    local started = safeCall(false, function()
-        -- This is a mod-owned animation variable, not the engine-owned
-        -- bAttack flag. The faction action-group transition consumes it on
-        -- every client and plays vanilla zombie clips without invoking a
-        -- character path goal or vanilla player-hit events.
-        subject:faceThisObject(candidate)
-        subject:setVariable(PRESENTATION_PHASE_VARIABLE, "windup")
-        subject:setVariable(PRESENTATION_VARIABLE, true)
-        return true
-    end) == true
-    if not started then
-        CombatController.increment("presentationSuppressed")
-        return true
-    end
-
-    record.subject = subject
-    record.candidate = candidate
-    record.remaining = PRESENTATION_DURATION_TICKS
-    activePresentations[record.hitId] = record
-    CombatController.increment("presentationCues")
-    CombatController.increment("presentationStarts")
-    return true
-end
-
-local function updatePresentations(stepTicks)
-    for i = #pendingPresentations, 1, -1 do
-        local record = pendingPresentations[i]
-        record.resolveTicks = record.resolveTicks - stepTicks
-        if beginPresentation(record) or record.resolveTicks <= 0 then
-            if record.resolveTicks <= 0 and not record.subject then
-                CombatController.increment("presentationSuppressed")
-            end
-            table.remove(pendingPresentations, i)
-        end
-    end
-
-    for hitId, record in pairs(activePresentations) do
-        record.remaining = record.remaining - stepTicks
-        if record.remaining <= 0 or isDead(record.subject) or isDead(record.candidate) then
-            -- XML clears these variables after the success clip. This is a
-            -- bounded recovery path for an interrupted or unloaded animator.
-            safeCall(false, function()
-                record.subject:setVariable(PRESENTATION_VARIABLE, false)
-                record.subject:setVariable(PRESENTATION_PHASE_VARIABLE, "")
-                return true
-            end)
-            activePresentations[hitId] = nil
-            CombatController.increment("presentationRetired")
-        end
-    end
-end
-
 local function onServerCommand(module, command, args)
     if module ~= MODULE then return end
     args = args or {}
@@ -340,21 +251,6 @@ local function onServerCommand(module, command, args)
         return
     end
 
-    if command == PRESENTATION_COMMAND then
-        local hitId = tostring(args.hitId or "")
-        local subjectId = tonumber(args.subjectId)
-        local candidateId = tonumber(args.candidateId)
-        if hitId == "" or subjectId == nil or candidateId == nil then return end
-        if activePresentations[hitId] then return end
-        pendingPresentations[#pendingPresentations + 1] = {
-            hitId = hitId,
-            subjectId = subjectId,
-            candidateId = candidateId,
-            resolveTicks = PRESENTATION_RESOLVE_TICKS,
-        }
-        return
-    end
-
     if command == RELEASE_COMMAND then
         if tostring(args.targetOwner or "") ~= player:getUsername() then return end
         local subjectId = tonumber(args.subjectId)
@@ -367,7 +263,7 @@ local function onServerCommand(module, command, args)
         end
         local record = tracked[subjectId]
         if record and record.candidateId == candidateId then
-            recoverInvalidAttackBump(record.subject)
+            clearExpiredFactionBite(record)
             tracked[subjectId] = nil
         end
         return
@@ -409,28 +305,26 @@ local function onServerCommand(module, command, args)
     end
 end
 
-local function resetAttackCycle(record, cancelled)
-    if cancelled and record.attackTicks ~= nil then
-        CombatController.increment("customAttackCancels")
-    end
-    record.attackTicks = nil
-end
-
-local function startAttackCycle(record)
-    record.attackTicks = ATTACK_WINDUP_BASE_TICKS
-        + (math.abs(record.subjectId) % (ATTACK_WINDUP_STAGGER_TICKS + 1))
-    safeCall(false, function()
+local function armFactionBite(record)
+    if record.bumpTicks and record.bumpTicks > 0 then return end
+    local armed = safeCall(false, function()
         record.subject:faceThisObject(record.candidate)
+        record.subject:setBumpType(BITE_BUMP_TYPE)
         return true
-    end)
-    CombatController.increment("customAttackStarts")
+    end) == true
+    if armed then
+        record.bumpTicks = BITE_ARM_TICKS
+        CombatController.increment("biteBumpsArmed")
+    else
+        CombatController.increment("biteBumpsSuppressed")
+    end
 end
 
 local function updateImpactRecord(record, stepTicks)
     local dist = distance(record.subject, record.candidate)
     local authorized = CombatController.isMeleeAuthorized(record.subjectId, record.candidateId)
     if not authorized then
-        resetAttackCycle(record, true)
+        clearExpiredFactionBite(record)
         CombatController.increment("impactSuppressed")
         CombatController.increment("impactNoAuthorization")
         return
@@ -444,65 +338,74 @@ local function updateImpactRecord(record, stepTicks)
         CombatController.increment("impactAuthorizedWithoutExact")
     end
     if dist > MAX_DISTANCE then
-        resetAttackCycle(record, true)
+        clearExpiredFactionBite(record)
         CombatController.increment("impactSuppressed")
         CombatController.increment("impactOutOfRange")
         return
     end
     if isUnsafeCombatPair(record.subject, record.candidate) then
-        resetAttackCycle(record, true)
+        clearExpiredFactionBite(record)
         CombatController.increment("impactSuppressed")
         CombatController.increment("impactUnsafe")
         return
     end
 
     if record.cooldown > 0 then
-        resetAttackCycle(record, false)
         return
     end
+    armFactionBite(record)
+end
 
-    if record.attackTicks == nil then
-        startAttackCycle(record)
-        return
+-- The collision is the hit clock.  Unlike the retired timer cycle, damage cannot
+-- dispatch until the client-owned attacker actually reaches its defender.
+local function onCharacterCollide(first, second)
+    local firstId = onlineId(first)
+    local secondId = onlineId(second)
+    local record = tracked[firstId]
+    if not record or record.candidateId ~= secondId then
+        record = tracked[secondId]
+        if not record or record.candidateId ~= firstId then return end
     end
-
-    safeCall(false, function()
-        record.subject:faceThisObject(record.candidate)
-        return true
-    end)
-    record.attackTicks = record.attackTicks - stepTicks
-    if record.attackTicks > 0 then return end
-    if not CombatController.tryConsumeImpactRequestBudget() then
-        record.attackTicks = 0
-        CombatController.increment("impactBudgetDeferred")
+    if not record.subject or not record.candidate or (record.bumpTicks or 0) <= 0 then return end
+    if isDead(record.subject) or isDead(record.candidate)
+        or not CombatController.isMeleeAuthorized(record.subjectId, record.candidateId)
+        or not sameLevel(record.subject, record.candidate)
+        or distance(record.subject, record.candidate) > MAX_DISTANCE
+        or isUnsafeCombatPair(record.subject, record.candidate)
+    then
+        clearExpiredFactionBite(record)
         return
     end
 
     local player = getPlayer()
     if not player or ownerUsername(record.subject) ~= player:getUsername() then return end
+    if not CombatController.tryConsumeImpactRequestBudget() then
+        CombatController.increment("impactBudgetDeferred")
+        return
+    end
 
+    record.bumpTicks = nil
     record.cooldown = REQUEST_COOLDOWN_TICKS
-    resetAttackCycle(record, false)
+    safeCall(false, function()
+        record.subject:faceThisObject(record.candidate)
+        record.subject:setBumpDone(true)
+        return true
+    end)
     sendClientCommand(player, MODULE, IMPACT_COMMAND, {
         runId = record.runId,
         subjectId = record.subjectId,
         candidateId = record.candidateId,
     })
+    CombatController.increment("biteCollisions")
     CombatController.increment("impactRequests")
     CombatController.increment("customAttackHits")
-
     print(string.format(
-        "[ZombieFactions][%s][IMPACT_PROBE] request subject=%d candidate=%d distance=%.2f clientCandidateHealth=%.3f",
-        record.runId,
-        record.subjectId,
-        record.candidateId,
-        dist,
-        health(record.candidate)
+        "[ZombieFactions][%s][BITE_COLLISION] request subject=%d candidate=%d distance=%.2f clientCandidateHealth=%.3f",
+        record.runId, record.subjectId, record.candidateId, distance(record.subject, record.candidate), health(record.candidate)
     ))
 end
 
 local function onControllerUpdate(stepTicks)
-    updatePresentations(stepTicks)
     for i = #pendingOwnerHits, 1, -1 do
         local record = pendingOwnerHits[i]
         record.ticks = record.ticks - stepTicks
@@ -523,9 +426,12 @@ local function onControllerUpdate(stepTicks)
     end
 
     for subjectId, record in pairs(tracked) do
-        recoverInvalidAttackBump(record.subject)
         if not record.persistent then record.remaining = record.remaining - stepTicks end
         if record.cooldown > 0 then record.cooldown = math.max(0, record.cooldown - stepTicks) end
+        if record.bumpTicks and record.bumpTicks > 0 then
+            record.bumpTicks = record.bumpTicks - stepTicks
+            if record.bumpTicks <= 0 then clearExpiredFactionBite(record) end
+        end
         local player = getPlayer()
         local localUsername = player and player:getUsername() or "none"
         if (not record.persistent and record.remaining <= 0)
@@ -548,4 +454,5 @@ local function onControllerUpdate(stepTicks)
 end
 
 Events.OnServerCommand.Add(onServerCommand)
+Events.OnCharacterCollide.Add(onCharacterCollide)
 CombatController.register("impact", onControllerUpdate, 20)

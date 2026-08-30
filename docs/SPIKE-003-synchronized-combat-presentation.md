@@ -1,11 +1,11 @@
 # SPIKE-003 — Explicitly Synchronized Combat Presentation
 
-Status: Active — custom action-state probe added in v0.0.29
+Status: Active — native bumped-state collision probe added in v0.0.30
 Target: Project Zomboid Build 42.20.x
 
 ## Question
 
-Can a server-validated faction impact trigger a readable zombie attack presentation on every relevant client without using a zombie character-path goal?
+Can a locally owned faction zombie enter a readable native bite presentation on collision with its assigned opposing zombie, while the server retains damage authority?
 
 ## Audience
 
@@ -13,7 +13,7 @@ Developers validating the next presentation path for Issue #3.
 
 ## Use this when
 
-Testing a dedicated server with v0.0.29 and mutually Hostile diagnostic factions.
+Testing a dedicated server with v0.0.30 and mutually Hostile diagnostic factions.
 
 ## Update this when
 
@@ -25,16 +25,16 @@ Target-policy, damage-amount, or unrelated performance changes.
 
 ## Boundary
 
-The server sends a cue only after it has validated the exact active pair, range, policy, ownership, and impact cooldown. The cue cannot select a target or damage a zombie. Clients apply it only to locally resolved, alive, same-level pairs inside the existing server maximum impact range. A client sets a temporary, mod-owned action-graph variable that routes the attacker through vanilla `Zombie_Bite_Start` and `Zombie_Bite_Success` clips; it does not attach a zombie target, call `pathToCharacter`, write native `bAttack`, or emit vanilla player-hit events. The XML action nodes clear the variable at the end of the bite, with a bounded Lua recovery path for interrupted animation.
+The owner client arms `BumpType=Bite` only for its locally resolved, alive, same-level assigned pair inside the existing melee envelope. A real `OnCharacterCollide` event is the only path that requests a hit. The server then revalidates the active pair, faction policy, ownership, range, cooldown, and pending-hit state before dispatching target-owner damage. The animation node lives in the existing zombie `bumped` set and reuses vanilla `Zombie_Bite_Start`; it does not attach a zombie character goal, call `pathToCharacter`, or write native `bAttack`. A short owner-local timeout clears an unconsumed bite bump.
 
 ## Controlled validation
 
-1. Start a dedicated server and one client with clean v0.0.29 logs.
+1. Start a dedicated server and one client with clean v0.0.30 logs.
 2. Spawn a 1v1 Red/Vanilla pair with both directions `HOSTILE` on clear, level ground.
-3. Confirm repeated visible attacker bite/lunge motion at validated impacts without `NetworkZombieMind: goal character is not set` errors.
-4. Confirm client summaries report nonzero `presentationCues`, `presentationStarts`, and `presentationRetired`; investigate any unexpected high `presentationSuppressed` count.
+3. Confirm repeated visible attacker bite motion at contact, without the previous outstretched-arm freeze or `NetworkZombieMind: goal character is not set` errors.
+4. Confirm the client summary reports nonzero `biteBumpsArmed` and `biteCollisions`; if bites arm but collisions remain zero, collect logs before changing damage behavior.
 5. Confirm existing damage, lethal death/corpse synchronization, and player-target behavior remain unchanged.
-6. Do not test crawlers, target reaction, sound, or crowd scaling as acceptance for this spike until the standing 1v1 presentation is observed.
+6. Do not treat crawler, reaction, sound, or crowd behavior as accepted until the standing 1v1 bite/collision path is observed.
 
 ## Acceptance
 
