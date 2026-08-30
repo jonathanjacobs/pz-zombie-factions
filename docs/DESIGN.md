@@ -113,6 +113,8 @@ v0.0.23 adds an explicit owner-local melee commitment for a clear authorized pai
 
 v0.0.24 corrects the presentation layer without changing that damage/control split. `IsoGameCharacter.setBumpType` describes collision reactions, not an animation to play; unsupported `Bite` and `BiteLow` values can enter the zombie bumped action state without a matching animation capable of emitting `BumpAnimFinished`. The explicit melee cycle therefore remains timing-only. A compatibility guard sets the completion variable and clears the bump state only when it finds one of those two values written by v0.0.23. Legitimate vanilla bump types are never modified. A future attack visual must use a lifecycle that can safely target another zombie and must remain independent of damage authorization.
 
+A stable mob may contain active and dormant members at the same time. Mob-wide activity must not suppress event-driven recovery for a specific dormant member: if that member is attacked or becomes the known target of an eligible hostile zombie, it must be able to receive a direct server-validated wake-up against that candidate even while another member remains active. A member that temporarily lacks a candidate may be retried through bounded mob topology or combat events, but followers must not gain recurring independent discovery scans.
+
 ## Admin diagnostic harness
 
 Build 42's Horde Spawning UI is `ISSpawnHordeUI`. Vanilla spawning remains on its original path unless the SPIKE checkbox is enabled; opt-in Vanilla and custom diagnostic factions use a namespaced client/server command gated by `Capability.CreateHorde`.
@@ -187,13 +189,18 @@ If a production implementation must trigger behavior on the owning client, the s
 - [x] validate that v0.0.15 traversal polling suppresses zero-vector failures but cannot close the fence-animation race
 - [x] validate v0.0.16 targetless pursuit and crash avoidance; identify client diagnostic polling/logging as the stress bottleneck
 - [x] close SPIKE-001 after v0.0.24 validates stable timed melee without invalid bump states, sustained synchronized damage, bounded packets, and crowd operation at mob size `1`
-- [ ] validate size-8 stable membership, leader-only faction discovery, distributed member targets, reactive defender wake-up, packets, and client FPS before testing unlimited mobs
+- [x] validate size-8 stable membership, leader-only faction discovery, distributed member targets, bounded packet flow, and sustained synchronized damage
+- [ ] restore event-driven recovery for a dormant member while another member keeps the mob active ([#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2))
+- [ ] reduce distance-rejected faction impact requests without weakening server validation ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1))
+- [ ] validate the explicit Red/Blue/Vanilla relationship matrix so expected Neutral pairs are distinguishable from failed retaliation
+- [ ] profile client FPS and server load at mob size `8` before testing unlimited mobs
 - [ ] validate ownership reacquisition with a real owner transfer
 - [x] determine that the validated diagnostic mechanism is feasible without a deeper engine hook and record the authority split in ADR-001
 - [ ] validate assignment across save/restart and relevance transitions
 
 ### 2 — Faction core
 
+- [ ] automatic production enrollment for naturally spawned and relevance-loaded zombies outside the diagnostic harness
 - [ ] production persistence for zombie assignment
 - [ ] player-faction resolution
 - [ ] persistent/server-configurable relationship state
