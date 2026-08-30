@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.0.27 — 2026-08-30
+
+Rejected native zombie-target melee prime for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- recorded the v0.0.26 multiplayer result: the one-shot `pathToCharacter(candidate)` prime did not produce visible zombie-versus-zombie fighting and emitted `NetworkZombieMind: goal character is not set` errors;
+- removed that prime because Build 42's network zombie path representation supports player character goals, not zombie character goals;
+- removed `nativeMeleePrimes` and `nativeAttackStateEntries`, as remote-client attack state cannot prove that a faction candidate was the target;
+- retained the established target, server-authorized impact, and synchronized death routes while SPIKE-002 evaluates a mod-owned, explicitly synchronized presentation path.
+
+## 0.0.26 — 2026-08-30
+
+Native melee-animation priming probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- recorded the v0.0.25 result: direct `bAttack` and `ZombieBiteDone` writes produced no observed attack animation; their counters measured write attempts rather than entry into a native attack state;
+- removed those writes because Build 42 derives attack eligibility from internal zombie state rather than treating those variables as animation commands;
+- after the existing exact target attachment inside the clear melee envelope, issues one native `pathToCharacter(candidate)` prime and never refreshes it while the target is attached;
+- reports `nativeMeleePrimes` plus actual rising `isZombieAttacking(candidate)` transitions as `nativeAttackStateEntries` in the five-second client summary;
+- retains existing server-authorized impact, validation, and death handling; native collision remains outside the faction damage route.
+
 ## 0.0.25 — 2026-08-30
 
 Zombie combat presentation probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
