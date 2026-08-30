@@ -376,7 +376,11 @@ Validate with the same Red/Vanilla crowd at mob sizes `1`, `8`, and `0`. For eac
 
 The size-8 v0.0.18 test validated shared discovery: 296 leaders produced 837 inherited assignments and 1,133 grants, while 362 dispatched damage events were accepted. No crash or kick occurred. At high density, however, nearest-only leader selection and exact-center coordinate pursuit caused multiple mobs to collapse onto the same candidates. Roughly 265 active leases then produced no damage requests for repeated five-second intervals; the owner client reported thousands of target reattachments and no-exact-target samples before lease expiration released the crowd. `NetworkZombieMind: goal character is not set` also reappeared during the dense phase.
 
-v0.0.19 keeps shared targets legal but adds three escape mechanisms: active assignments softly penalize candidate score, deterministic inner/outer ring positions spread approach destinations, and a subject with neither meaningful distance progress nor native attack progress for a staggered five-to-seven-second interval requests one owner-authenticated reassignment. The previous candidate is strongly deprioritized for that replacement scan when alternatives exist. Exact-target attachment retries are limited to twice per second.
+v0.0.19 keeps shared targets legal but adds three escape mechanisms: active assignments softly penalize candidate score, deterministic inner/outer ring positions spread approach destinations, and a subject with neither meaningful distance progress nor native attack progress for a staggered five-to-seven-second interval requests one owner-authenticated reassignment. The previous candidate is strongly deprioritized for that replacement scan when alternatives exist. Exact-target attachment retries are limited to twice per second, bounding unsupported target writes when Build 42 clears a zombie target.
+
+## v0.0.20 persistent-hostility experiment
+
+v0.0.20 removes the inherited 60-second expiration from target and impact grants. Grants carry an explicit persistent-lifetime flag and continue until an event invalidates them: death, pooled-object identity reuse, ownership loss, invalid policy, level or distance separation, explicit release, or no-progress reassignment. Acknowledgement timeouts, damage cooldowns, scan budgets, and reacquisition backoff remain bounded because they constrain individual operations rather than ending faction hostility.
 
 ## v0.0.21 stable-mob experiment
 
@@ -408,6 +412,24 @@ v0.0.24 removes the bump write and leaves the proven staggered timing and damage
 
 Retest with mob size `8`, 20 Red, and 20 mutually hostile Vanilla, spawned at radius `3` to `4`. Observe for at least 90 seconds. Confirm zombies continue moving after close-range impacts, no one remains indefinitely frozen with outstretched arms, deaths continue, and no red errors occur. Capture client `[PERF]` and server `[SERVER_PERF]`; `customAttackHits` and `damageAccepted` should remain active, while `invalidAttackBumpsRecovered` should normally be zero after a clean restart and may be nonzero only when recovering a live state created by v0.0.23.
 
+## Final diagnostic harness flow
+
+The validated admin harness extends Build 42's `ISSpawnHordeUI`. Vanilla spawning remains on its original path unless the SPIKE checkbox is enabled; opt-in Vanilla and custom diagnostic factions use a namespaced client/server command gated by `Capability.CreateHorde`.
+
+The server:
+
+1. validates the diagnostic faction and directional relationships;
+2. calls `addZombiesInOutfit(...)` and assigns the exact returned zombie;
+3. records a bounded `SPIKE001-####` run ID and performs immediate and delayed assignment verification;
+4. recruits each requested subject once into a stable local mob;
+5. queues only the elected leader and uses a shared spatial index plus a per-tick budget to select a `canTarget`-eligible hostile faction;
+6. makes one bounded, load-aware candidate selection for each waking member;
+7. dispatches exact subject/candidate online IDs only to the subject's current owner;
+8. regrants after ownership changes and wakes or requeues the stable mob after candidate invalidation;
+9. observes server-visible target, state, impact, and death transitions through aggregate diagnostics.
+
+The owning client resolves the exact online IDs with bounded retries, confirms local ownership, and maintains coordinate pursuit plus close-range engagement for the authorized pair. An authorized hit requests server validation; the server routes a fixed nonlethal decrement only to the target zombie's current owner, verifies the acknowledgement, and finalizes lethal death. This avoids relying on client propagation of SPIKE `modData` to identify a diagnostic subject.
+
 ## Closeout result
 
 **Answer: yes, directional zombie-faction hostility and synchronized zombie-on-zombie combat are feasible in Build 42.20.x, but not through the complete vanilla player-target combat path.**
@@ -425,6 +447,12 @@ The final v0.0.24 dedicated-server run recorded 43 five-second client summaries 
 Across the spike, controlled tests also established faction assignment, hostile acquisition, owner-side pursuit, attack-state entry, nonlethal synchronization, lethal death/corpse replication, Friendly suppression, and dedicated server/client synchronization. Neutral was not rerun independently; it uses the same policy-suppression branch as Friendly and is accepted on that code-path evidence.
 
 This closes feasibility, not production readiness. The final run used effective mob size `1`, as shown by `mobs == mobMembers`; multi-member leader/follower behavior, unlimited-mob scaling, real ownership transfer, save/restart persistence, automatic production enrollment, and a proper attack presentation remain follow-on work. Distance validation rejected 241 of 737 server damage requests, so tightening impact timing or geometry is also a performance optimization candidate rather than a feasibility blocker.
+
+## Post-closeout size-8 validation
+
+A subsequent v0.0.24 run exercised stable mobs with `ZombieMobSize=8`. It recorded 160 recruits, reached 13 mobs with 100 simultaneous members, performed 130 leader scans and 388 bounded member selections, issued 113 distributed assignments, and completed 15 leader changes. Combat produced 353 server damage requests, of which 237 were accepted. All 116 rejections were distance checks; the client reported no impact-budget deferrals or invalid-bump recoveries, and no Zombie Factions exception or kick occurred.
+
+Representative late summaries showed 89 members, 84 active assignments, five dormant members, and no pending leaders or wakeups. Because the run did not explicitly make every Red/Blue/Vanilla direction Hostile, a visually idle pair may have been policy-correct. Explicit relationship-matrix validation remains necessary. The active-mob guard may also strand an individual dormant member when another member remains engaged; that recovery invariant is tracked in [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2). Avoidable distance-rejected impact traffic is tracked separately in [#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1).
 
 ## Acceptance criteria
 
