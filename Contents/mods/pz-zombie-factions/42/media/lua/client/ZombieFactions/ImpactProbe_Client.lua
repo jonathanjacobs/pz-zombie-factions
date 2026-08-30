@@ -25,7 +25,7 @@ local pendingOwnerHits = {}
 local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.24")
+print("[ZombieFactions] Client impact probe loaded v0.0.25")
 
 local function print(message)
     CombatController.detail(message)
@@ -314,17 +314,39 @@ local function resetAttackCycle(record, cancelled)
     if cancelled and record.attackTicks ~= nil then
         CombatController.increment("customAttackCancels")
     end
+    if record.nativeAttackActive then
+        safeCall(false, function()
+            -- These are the existing Build 42 zombie action-graph gates.  Do
+            -- not use BumpType as an animation selector: it is a collision
+            -- reaction state and caused the v0.0.23 frozen-arm regression.
+            record.subject:setVariable("bAttack", false)
+            record.subject:setVariable("ZombieBiteDone", true)
+            return true
+        end)
+        record.nativeAttackActive = false
+        CombatController.increment("nativeAttackCompletions")
+    end
     record.attackTicks = nil
 end
 
 local function startAttackCycle(record)
     record.attackTicks = ATTACK_WINDUP_BASE_TICKS
         + (math.abs(record.subjectId) % (ATTACK_WINDUP_STAGGER_TICKS + 1))
-    safeCall(false, function()
+    local nativeAttackStarted = safeCall(false, function()
         record.subject:faceThisObject(record.candidate)
+        -- `bAttack` and `ZombieBiteDone` are the predicates used by the
+        -- shipped zombie and zombie-crawler attack action graphs.  This is
+        -- presentation only: the existing server-authorized impact route
+        -- remains the only way a faction zombie can damage another zombie.
+        record.subject:setVariable("ZombieBiteDone", false)
+        record.subject:setVariable("bAttack", true)
         return true
     end)
+    record.nativeAttackActive = nativeAttackStarted == true
     CombatController.increment("customAttackStarts")
+    if record.nativeAttackActive then
+        CombatController.increment("nativeAttackStarts")
+    end
 end
 
 local function updateImpactRecord(record, stepTicks)

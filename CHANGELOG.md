@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.25 — 2026-08-30
+
+Zombie combat presentation probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- added an owner-local SPIKE-002 probe that drives the shipped zombie/crawler attack action-graph variables (`bAttack` and `ZombieBiteDone`) only while an existing faction impact is authorized;
+- retained the accepted server-authorized target, validation, owner-mediated damage, and server-finalized death path unchanged;
+- explicitly avoids the unsupported `BumpType` values that caused the v0.0.23 frozen-arm regression;
+- added native attack start/completion counters to the five-second client summary;
+- recorded attack, reaction, sound, crawler, and death-presentation validation as unverified runtime work rather than a completed behavior claim.
+
 ## 0.0.24 — 2026-08-30
 
 Invalid zombie bump-state recovery.
