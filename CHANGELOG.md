@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.31 — 2026-08-30
+
+Standing bite-sequence correction for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- chains the native standing `Zombie_Bite_Start` wind-up into `Zombie_Bite_Success` inside the proven `bumped` state and completes the bump only after the follow-through;
+- removes the immediate collision-time `setBumpDone()` that truncated the start clip into the observed raised-arm motion;
+- keeps sprint approach/lunge behavior outside this close-range visual route, where sprinters use the same standing bite sequence at contact;
+- defers bite presentation for crawler participants using the engine `isCrawling()` predicate rather than forcing a standing clip or relying on crawler collision delivery;
+- adds visible client-summary counters for armed, suppressed, expired, and collided bites plus deferred crawler pairs.
+
 ## 0.0.30 — 2026-08-30
 
 Native bumped-state faction-bite probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).

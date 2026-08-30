@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animNode>
+    <m_Name>zombiefactionsBiteSuccess</m_Name>
+    <m_AnimName>Zombie_Bite_Success</m_AnimName>
+    <m_Looped>false</m_Looped>
+    <m_BlendTime>0.00</m_BlendTime>
+    <m_BlendOutTime>0.20</m_BlendOutTime>
+    <m_SpeedScale>1.04</m_SpeedScale>
+    <m_SyncTrackingEnabled>false</m_SyncTrackingEnabled>
+    <m_Conditions x_name="a7b0b35a-8d4b-4f4d-b9e1-b4e9d78b7004">
+        <m_Name>BumpType</m_Name>
+        <m_Type>STRING</m_Type>
+        <m_Value>Bite</m_Value>
+    </m_Conditions>
+    <m_Conditions x_name="a7b0b35a-8d4b-4f4d-b9e1-b4e9d78b7005">
+        <m_Name>ZombieFactionsBitePhase</m_Name>
+        <m_Type>STRING</m_Type>
+        <m_Value>success</m_Value>
+    </m_Conditions>
+    <m_Events x_name="a7b0b35a-8d4b-4f4d-b9e1-b4e9d78b7006">
+        <m_EventName>SetVariable</m_EventName>
+        <m_Time>End</m_Time>
+        <m_ParameterValue>BumpAnimFinished=true</m_ParameterValue>
+    </m_Events>
+    <m_Events x_name="a7b0b35a-8d4b-4f4d-b9e1-b4e9d78b7007">
+        <m_EventName>SetVariable</m_EventName>
+        <m_Time>End</m_Time>
+        <m_ParameterValue>ZombieFactionsBitePhase=</m_ParameterValue>
+    </m_Events>
+</animNode>

@@ -17,7 +17,7 @@ local TRACK_TICKS = 60 * CLIENT_TICKS_PER_SECOND
 local PROCESSED_OWNER_HIT_LIMIT = 256
 local MIN_SAFE_TARGET_DISTANCE = 0.10
 local BITE_BUMP_TYPE = "Bite"
-local BITE_ARM_TICKS = 20
+local BITE_ARM_TICKS = 120
 
 local pending = {}
 local tracked = {}
@@ -25,7 +25,7 @@ local pendingOwnerHits = {}
 local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.30")
+print("[ZombieFactions] Client impact probe loaded v0.0.31")
 
 local function print(message)
     CombatController.detail(message)
@@ -54,6 +54,11 @@ end
 local function isDead(zombie)
     if not zombie then return true end
     return safeCall(false, function() return zombie:isDead() end) == true
+end
+
+local function isCrawler(zombie)
+    if not zombie or zombie.isCrawling == nil then return false end
+    return safeCall(false, function() return zombie:isCrawling() end) == true
 end
 
 local function distance(a, b)
@@ -90,6 +95,7 @@ local function clearExpiredFactionBite(record)
     record.bumpTicks = nil
     safeCall(false, function()
         record.subject:setVariable("BumpAnimFinished", true)
+        record.subject:setVariable("ZombieFactionsBitePhase", "")
         record.subject:setBumpDone(true)
         record.subject:setBumpType("")
         return true
@@ -309,6 +315,8 @@ local function armFactionBite(record)
     if record.bumpTicks and record.bumpTicks > 0 then return end
     local armed = safeCall(false, function()
         record.subject:faceThisObject(record.candidate)
+        record.subject:setVariable("BumpAnimFinished", false)
+        record.subject:setVariable("ZombieFactionsBitePhase", "start")
         record.subject:setBumpType(BITE_BUMP_TYPE)
         return true
     end) == true
@@ -350,6 +358,14 @@ local function updateImpactRecord(record, stepTicks)
         return
     end
 
+    -- Crawlers use a separate engine path and can fail to emit character
+    -- collisions. Do not force the standing bite onto either participant.
+    if isCrawler(record.subject) or isCrawler(record.candidate) then
+        clearExpiredFactionBite(record)
+        CombatController.increment("crawlerBitesDeferred")
+        return
+    end
+
     if record.cooldown > 0 then
         return
     end
@@ -368,6 +384,7 @@ local function onCharacterCollide(first, second)
     end
     if not record.subject or not record.candidate or (record.bumpTicks or 0) <= 0 then return end
     if isDead(record.subject) or isDead(record.candidate)
+        or isCrawler(record.subject) or isCrawler(record.candidate)
         or not CombatController.isMeleeAuthorized(record.subjectId, record.candidateId)
         or not sameLevel(record.subject, record.candidate)
         or distance(record.subject, record.candidate) > MAX_DISTANCE
@@ -388,7 +405,6 @@ local function onCharacterCollide(first, second)
     record.cooldown = REQUEST_COOLDOWN_TICKS
     safeCall(false, function()
         record.subject:faceThisObject(record.candidate)
-        record.subject:setBumpDone(true)
         return true
     end)
     sendClientCommand(player, MODULE, IMPACT_COMMAND, {

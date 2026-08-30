@@ -59,7 +59,7 @@ ZombieFactions.PendingMobWakeups = ZombieFactions.PendingMobWakeups or {}
 ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
-alwaysPrint("[ZombieFactions] Server test harness loaded v0.0.30")
+alwaysPrint("[ZombieFactions] Server test harness loaded v0.0.31")
 
 local function print(message)
     if SERVER_VERBOSE_DIAGNOSTICS then alwaysPrint(message) end
