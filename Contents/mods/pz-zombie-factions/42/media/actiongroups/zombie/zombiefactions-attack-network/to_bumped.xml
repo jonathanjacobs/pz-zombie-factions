@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<transition>
+	<transitionTo>bumped</transitionTo>
+	<conditions>
+		<isTrue>bumped</isTrue>
+	</conditions>
+</transition>

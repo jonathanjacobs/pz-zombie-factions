@@ -12,7 +12,7 @@ Logs/
 Thumbs.db
 
 # Decompiled/research source must never be committed
-zombie/
+/zombie/
 decompiled/
 research-source/
 

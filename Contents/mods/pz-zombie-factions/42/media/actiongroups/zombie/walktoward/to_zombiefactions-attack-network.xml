@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<transition>
+	<transitionTo>zombiefactions-attack-network</transitionTo>
+	<conditionPriority>1</conditionPriority>
+	<conditions>
+		<isTrue>ZombieFactionsAttackPresentation</isTrue>
+		<isFalse>bDead</isFalse>
+		<isFalse>bOnFloor</isFalse>
+	</conditions>
+</transition>

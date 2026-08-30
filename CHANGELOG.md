@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.0.29 — 2026-08-30
+
+Build 42 custom faction-combat action-state probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- adds a mod-owned `zombiefactions-attack-network` action state and transitions from common standing/movement states only while the temporary faction-presentation variable is true;
+- drives a vanilla `Zombie_Bite_Start` then `Zombie_Bite_Success` sequence from two mod-owned animation variables, without bundling third-party animation assets or using Blender-created content;
+- sends the presentation variable only from the existing server-validated faction-impact cue, keeps faction damage outside animation events, and retains a bounded recovery clear for interrupted action graphs;
+- removes target attachment and perception refresh from the presentation cue, avoiding a zombie character path goal and the player-oriented native `bAttack` route;
+- renames the presentation metric to `presentationStarts` to distinguish action-state starts from target attachment.
+
+## 0.0.28 — 2026-08-30
+
+Explicitly synchronized combat-presentation probe for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- broadcasts a presentation cue only when the server has already validated and dispatched a faction impact;
+- each receiving client locally attaches the exact cue pair only when safe and relevant, refreshes the remote target vector without a character-path goal, and retires the temporary presentation target after the short cue window;
+- preserves existing owner pursuit, server-authorized damage, and death handling; the cue carries no target-selection or damage authority;
+- adds presentation cue, attachment, suppression, and retirement counters to the client summary for runtime correlation.
+
 ## 0.0.27 — 2026-08-30
 
 Rejected native zombie-target melee prime for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).

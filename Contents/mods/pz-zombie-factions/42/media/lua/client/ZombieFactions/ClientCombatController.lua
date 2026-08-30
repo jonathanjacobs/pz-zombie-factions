@@ -124,7 +124,7 @@ local function printSummary()
     end
 
     print(string.format(
-        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",
+        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",
         trackedTargets,
         trackedImpacts,
         metric("controllerPasses"),
@@ -137,6 +137,10 @@ local function printSummary()
         metric("stuckReacquires"),
         metric("obstacleChecks"),
         metric("obstacleCacheHits"),
+        metric("presentationCues"),
+        metric("presentationStarts"),
+        metric("presentationSuppressed"),
+        metric("presentationRetired"),
         metric("customAttackStarts"),
         metric("customAttackHits"),
         metric("customAttackCancels"),

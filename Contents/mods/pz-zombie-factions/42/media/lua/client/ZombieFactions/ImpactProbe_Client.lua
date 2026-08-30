@@ -8,6 +8,7 @@ local IMPACT_COMMAND = "TargetProbeAttack"
 local APPLY_COMMAND = "TargetProbeApplyDamage"
 local ACK_COMMAND = "TargetProbeDamageAck"
 local RESULT_COMMAND = "TargetProbeDamageResult"
+local PRESENTATION_COMMAND = "TargetProbeCombatPresentation"
 
 local MAX_DISTANCE = 0.90
 local RESOLVE_TICKS = 120
@@ -18,14 +19,21 @@ local CLIENT_TICKS_PER_SECOND = 60
 local TRACK_TICKS = 60 * CLIENT_TICKS_PER_SECOND
 local PROCESSED_OWNER_HIT_LIMIT = 256
 local MIN_SAFE_TARGET_DISTANCE = 0.10
+local PRESENTATION_DURATION_TICKS = 180
+local PRESENTATION_RESOLVE_TICKS = 120
+local PRESENTATION_MAX_DISTANCE = 1.25
+local PRESENTATION_VARIABLE = "ZombieFactionsAttackPresentation"
+local PRESENTATION_PHASE_VARIABLE = "ZombieFactionsAttackPhase"
 
 local pending = {}
 local tracked = {}
 local pendingOwnerHits = {}
 local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
+local pendingPresentations = {}
+local activePresentations = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.27")
+print("[ZombieFactions] Client impact probe loaded v0.0.29")
 
 local function print(message)
     CombatController.detail(message)
@@ -226,6 +234,82 @@ local function applyOwnerHit(record)
     return true
 end
 
+local function sameLevel(a, b)
+    return math.abs(a:getZ() - b:getZ()) < 0.2
+end
+
+local function beginPresentation(record)
+    local subject = findZombie(record.subjectId)
+    local candidate = findZombie(record.candidateId)
+    if not subject or not candidate then return false end
+    if isDead(subject) or isDead(candidate)
+        or not sameLevel(subject, candidate)
+        or distance(subject, candidate) > PRESENTATION_MAX_DISTANCE
+    then
+        CombatController.increment("presentationSuppressed")
+        return true
+    end
+
+    local current = safeCall(nil, function() return subject:getTarget() end)
+    if current ~= nil and current ~= candidate then
+        -- Never replace a locally meaningful vanilla target (especially a
+        -- player) merely to show a faction-combat cue.
+        CombatController.increment("presentationSuppressed")
+        return true
+    end
+
+    local started = safeCall(false, function()
+        -- This is a mod-owned animation variable, not the engine-owned
+        -- bAttack flag. The faction action-group transition consumes it on
+        -- every client and plays vanilla zombie clips without invoking a
+        -- character path goal or vanilla player-hit events.
+        subject:faceThisObject(candidate)
+        subject:setVariable(PRESENTATION_PHASE_VARIABLE, "windup")
+        subject:setVariable(PRESENTATION_VARIABLE, true)
+        return true
+    end) == true
+    if not started then
+        CombatController.increment("presentationSuppressed")
+        return true
+    end
+
+    record.subject = subject
+    record.candidate = candidate
+    record.remaining = PRESENTATION_DURATION_TICKS
+    activePresentations[record.hitId] = record
+    CombatController.increment("presentationCues")
+    CombatController.increment("presentationStarts")
+    return true
+end
+
+local function updatePresentations(stepTicks)
+    for i = #pendingPresentations, 1, -1 do
+        local record = pendingPresentations[i]
+        record.resolveTicks = record.resolveTicks - stepTicks
+        if beginPresentation(record) or record.resolveTicks <= 0 then
+            if record.resolveTicks <= 0 and not record.subject then
+                CombatController.increment("presentationSuppressed")
+            end
+            table.remove(pendingPresentations, i)
+        end
+    end
+
+    for hitId, record in pairs(activePresentations) do
+        record.remaining = record.remaining - stepTicks
+        if record.remaining <= 0 or isDead(record.subject) or isDead(record.candidate) then
+            -- XML clears these variables after the success clip. This is a
+            -- bounded recovery path for an interrupted or unloaded animator.
+            safeCall(false, function()
+                record.subject:setVariable(PRESENTATION_VARIABLE, false)
+                record.subject:setVariable(PRESENTATION_PHASE_VARIABLE, "")
+                return true
+            end)
+            activePresentations[hitId] = nil
+            CombatController.increment("presentationRetired")
+        end
+    end
+end
+
 local function onServerCommand(module, command, args)
     if module ~= MODULE then return end
     args = args or {}
@@ -253,6 +337,21 @@ local function onServerCommand(module, command, args)
         if not applyOwnerHit(record) then
             pendingOwnerHits[#pendingOwnerHits + 1] = record
         end
+        return
+    end
+
+    if command == PRESENTATION_COMMAND then
+        local hitId = tostring(args.hitId or "")
+        local subjectId = tonumber(args.subjectId)
+        local candidateId = tonumber(args.candidateId)
+        if hitId == "" or subjectId == nil or candidateId == nil then return end
+        if activePresentations[hitId] then return end
+        pendingPresentations[#pendingPresentations + 1] = {
+            hitId = hitId,
+            subjectId = subjectId,
+            candidateId = candidateId,
+            resolveTicks = PRESENTATION_RESOLVE_TICKS,
+        }
         return
     end
 
@@ -403,6 +502,7 @@ local function updateImpactRecord(record, stepTicks)
 end
 
 local function onControllerUpdate(stepTicks)
+    updatePresentations(stepTicks)
     for i = #pendingOwnerHits, 1, -1 do
         local record = pendingOwnerHits[i]
         record.ticks = record.ticks - stepTicks

@@ -29,7 +29,7 @@ local PROGRESS_DISTANCE = 0.35
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.27")
+print("[ZombieFactions] Client target observer loaded v0.0.29")
 
 local function print(message)
     CombatController.detail(message)

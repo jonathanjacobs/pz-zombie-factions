@@ -91,7 +91,7 @@ Relationship configuration, target authorization, impact validation, and lethal 
 - [x] close SPIKE-001 and record the accepted authority model in ADR-001
 - [ ] restore event-driven recovery for a dormant member while another member keeps the mob active ([#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2))
 - [ ] reduce distance-rejected faction impact requests without weakening server validation ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1))
-- [ ] validate native zombie attack presentation and reaction/death feedback without changing the combat authority boundary ([#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3); [`SPIKE-002`](SPIKE-002-zombie-combat-presentation.md))
+- [ ] validate explicitly synchronized zombie attack presentation and reaction/death feedback without changing the combat authority boundary ([#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3); [`SPIKE-002`](SPIKE-002-zombie-combat-presentation.md), [`SPIKE-003`](SPIKE-003-synchronized-combat-presentation.md))
 - [ ] validate the explicit Red/Blue/Vanilla relationship matrix so expected Neutral pairs are distinguishable from failed retaliation
 - [ ] profile client FPS and server load at mob size `8` before testing unlimited mobs
 - [ ] validate ownership reacquisition with a real owner transfer

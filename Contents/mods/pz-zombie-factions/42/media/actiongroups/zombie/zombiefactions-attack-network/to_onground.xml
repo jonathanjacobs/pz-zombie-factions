@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<transitions>
+	<transition>
+		<transitionTo>onground</transitionTo>
+		<conditions>
+			<isTrue>bDead</isTrue>
+			<isTrue>bOnFloor</isTrue>
+		</conditions>
+	</transition>
+	<transition>
+		<transitionTo>onground</transitionTo>
+		<conditions>
+			<isTrue>bOnFloor</isTrue>
+		</conditions>
+	</transition>
+</transitions>

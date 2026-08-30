@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<transitions>
+	<transition>
+		<transitionTo>falldown</transitionTo>
+		<conditions>
+			<isTrue>bKnockedDown</isTrue>
+			<isFalse>bOnFloor</isFalse>
+			<isFalse>hashitreaction</isFalse>
+		</conditions>
+	</transition>
+	<transition>
+		<transitionTo>falldown</transitionTo>
+		<conditions>
+			<isTrue>bDead</isTrue>
+			<isFalse>bOnFloor</isFalse>
+		</conditions>
+	</transition>
+</transitions>
