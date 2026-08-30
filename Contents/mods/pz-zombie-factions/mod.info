@@ -1,7 +1,7 @@
 id=pz-zombie-factions
 name=Zombie Factions
-description=Pre-alpha Build 42 zombie-faction framework with an admin diagnostic horde-spawn, owner-side target probe, and server-authoritative impact probe.
+description=Pre-alpha Build 42 zombie-faction framework with bounded, time-sliced owner combat probes.
 author=Jonathan Jacobs
 category=features
-modversion=0.0.8
+modversion=0.0.24
 versionMin=42.20.0

@@ -1,0 +1,5 @@
+Sandbox_EN = {
+    Sandbox_ZombieFactions = "Zombie Factions",
+    Sandbox_ZombieFactions_ZombieMobSize = "Zombie Mob Size",
+    Sandbox_ZombieFactions_ZombieMobSize_tooltip = "Maximum stable membership of a local faction mob, including its leader. The leader alone scans for enemies; followers remain dormant until the mob acquires a target or is attacked. New zombies join once within the vanilla Rally Travel Distance. 1 keeps individual acquisition. 0 removes the local membership cap. Runtime membership ends only on death, invalid identity, or faction change.",
+}

@@ -10,7 +10,7 @@ local REL = ZombieFactions.Relationship
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.7")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.24")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -138,7 +138,7 @@ function ISSpawnHordeUI:createChildren()
     self.zfTargetProbe = ISTickBox:new(x, y, 340, rowHeight, "", self, nil)
     self.zfTargetProbe:initialise()
     self:addChild(self.zfTargetProbe)
-    self.zfTargetProbe:addOption("SPIKE: force nearest HOSTILE Vanilla zombie target")
+    self.zfTargetProbe:addOption("SPIKE: test bounded faction acquisition/reacquisition")
     self.zfTargetProbe.selected[1] = false
 
     addHarnessBottomButtons(self, spacing, rowHeight)
@@ -184,7 +184,7 @@ end
 function ISSpawnHordeUI:onSpawn()
     local factionId = selectedData(self.zfFaction) or VANILLA
 
-    if factionId == VANILLA then
+    if factionId == VANILLA and self.zfTargetProbe.selected[1] ~= true then
         return originalOnSpawn(self)
     end
 
@@ -213,7 +213,7 @@ local function onServerCommand(module, command, args)
 
     if args.ok then
         print(string.format(
-            "[ZombieFactions][%s] %s: spawned %s/%s as %s assignmentImmediate=%s/%s deferredSamples=%s targetProbeQueued=%s",
+            "[ZombieFactions][%s] %s: spawned %s/%s as %s assignmentImmediate=%s/%s deferredSamples=%s targetProbeQueued=%s targetProbeMembers=%s targetProbeLeaderActions=%s recruitmentRadius=%s",
             tostring(args.runId or "SPIKE001"),
             tostring(args.message or "spawn complete"),
             tostring(args.spawned or "?"),
@@ -222,7 +222,10 @@ local function onServerCommand(module, command, args)
             tostring(args.assignmentImmediate or "?"),
             tostring(args.spawned or "?"),
             tostring(args.validationSampled or "?"),
-            tostring(args.targetProbeQueued == true)
+            tostring(args.targetProbeQueued == true),
+            tostring(args.targetProbeSubjects or 0),
+            tostring(args.targetProbeLeaderActions or 0),
+            tostring(args.mobRecruitmentRadius or "?")
         ))
     else
         print("[ZombieFactions] faction horde spawn rejected: " .. tostring(args.message or "unknown error"))

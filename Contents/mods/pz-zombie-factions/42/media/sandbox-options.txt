@@ -1,0 +1,11 @@
+VERSION = 1,
+
+option ZombieFactions.ZombieMobSize
+{
+    type = integer,
+    min = 0,
+    max = 2147483647,
+    default = 1,
+    page = ZombieFactions,
+    translation = ZombieFactions_ZombieMobSize,
+}
