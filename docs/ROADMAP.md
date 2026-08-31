@@ -10,6 +10,7 @@ The validated diagnostic combat route is not yet normal gameplay behavior. The n
 ### Open follow-up work
 
 - [ ] Revalidate standing faction-combat presentation without a native zombie target and close the client-crash regression ([#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3); [SPIKE-003](spikes/SPIKE-003-synchronized-combat-presentation.md)).
+- [ ] Confirm that the reused Horde Spawner controls process one spawn per first click ([#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5)).
 - [ ] Prevent stale faction bite presentations without truncating a valid bite ([#4](https://github.com/jonathanjacobs/pz-zombie-factions/issues/4)).
 - [ ] Restore event-driven recovery for a dormant member while another mob member remains active ([#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2)).
 - [ ] Reduce server distance-rejected impact requests without weakening validation ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1)).

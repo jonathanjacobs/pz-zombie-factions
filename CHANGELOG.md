@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.33 — 2026-08-30
+
+Contact, sound, reaction-variety, and Horde Spawner input corrections for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3) and [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5).
+
+- continues coordinate pursuit through the broad animation envelope and stops only at a tighter contact distance, with smaller distributed approach slots, so an isolated pair can produce the collision required for a damage request;
+- emits the shipped `ZombieBite` sound from the locally owned attacker once per collision-driven request;
+- randomizes cosmetic target-owner reactions across shipped left/right shoulder and chest clips using four mod-owned bumped nodes;
+- reuses and lays out the vanilla Horde Spawner controls instead of placing duplicate controls over them;
+- records the stable v0.0.32 no-native-target result and the isolated-pair collision gap while keeping SPIKE-003 open for v0.0.33 validation.
+
 ## 0.0.32 — 2026-08-30
 
 Native-target crash containment and synchronized reaction probe for reopened [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).

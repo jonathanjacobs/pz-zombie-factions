@@ -1,8 +1,8 @@
 # Zombie Factions — Runtime Requirements
 
-This document owns normative product/runtime behavior for Zombie Factions. Implementation strategy and current research belong in `DESIGN.md` and the active spike documents.
+This document owns normative product/runtime behavior for Zombie Factions. Implementation strategy and current research belong in [`ARCHITECTURE.md`](ARCHITECTURE.md) and the active spike documents.
 
-Status: Research / Pre-Alpha  
+Status: Research / Pre-Alpha
 Target: Project Zomboid Build 42.20.x
 
 ## Definitions
@@ -109,7 +109,7 @@ The mod must not require full-world zombie scans, uncontrolled command traffic, 
 
 ### R19 — Zombie combat must remain within validated authority boundaries
 
-When zombie-to-zombie combat is enabled, it must use server-authorized pair grants, revalidated impacts, and server-finalized lethal outcomes. The project must limit compatibility and feature claims to controlled Build 42 evidence; unvalidated variants, including crawler presentation and reaction/sound behavior, must remain explicitly deferred.
+When zombie-to-zombie combat is enabled, it must use server-authorized pair grants, revalidated impacts, and server-finalized lethal outcomes. The project must limit compatibility and feature claims to controlled Build 42 evidence; unvalidated variants, including crawler presentation and reaction/sound behavior, must remain explicit test candidates rather than accepted behavior.
 
 ## Scope separation
 

@@ -24,7 +24,7 @@ The shared layer provides stable zombie-faction identity, directional relationsh
 The accepted authority boundary is recorded in [`adr/ADR-001-zombie-combat-authority.md`](adr/ADR-001-zombie-combat-authority.md):
 
 1. The server resolves policy, maintains bounded mobs, selects an eligible pair, and grants that pair to the attacker’s current owner.
-2. The owner client performs bounded coordinate pursuit, stops at the melee envelope, faces the granted defender, and keeps the zombie's native target clear.
+2. The owner client performs bounded coordinate pursuit through the broad animation envelope, stops only at the tighter contact distance, faces the granted defender, and keeps the zombie's native target clear.
 3. A locally observed collision is the sole source of a hit request.
 4. The server revalidates identity, policy, ownership, level, range, cooldown, liveness, and grant state.
 5. The target owner applies the uniquely identified nonlethal decrement; the server verifies it and alone finalizes lethal death through the normal corpse lifecycle.
@@ -37,10 +37,10 @@ Stable server-runtime mobs cap membership through `ZombieFactions.ZombieMobSize`
 
 ## Combat presentation
 
-For standing, non-crawling faction pairs, the owner client enters a mod-owned bumped-state mapping to the shipped `Zombie_Bite_Start` and `Zombie_Bite_Success` clips only while the attacker's native target is clear. The presentation does not use player hit packets, `pathToCharacter` with a zombie target, native `setTarget(IsoZombie)`, or `bAttack` writes. It is visual only: collision remains the trigger for the separately validated impact route. After a target owner applies a server-dispatched nonlethal hit, it may play a separate mod-owned bumped reaction mapped to `Zombie_ShotShoulder_L`.
+For standing, non-crawling faction pairs, the owner client enters a mod-owned bumped-state mapping to the shipped `Zombie_Bite_Start` and `Zombie_Bite_Success` clips only while the attacker's native target is clear. The presentation does not use player hit packets, `pathToCharacter` with a zombie target, native `setTarget(IsoZombie)`, or `bAttack` writes. Collision remains the trigger for the separately validated impact route and one owner-local `ZombieBite` sound. After a target owner applies a server-dispatched nonlethal hit, it may select one of four mod-owned bumped reactions mapped to shipped left/right shoulder and chest clips.
 
-The v0.0.31 standing presentation result was invalidated by a client crash when native `AttackState` attempted a player reaction against an `IsoZombie` target. Version 0.0.32 removes that target coupling and awaits controlled validation. Crawlers, sounds, and stale-presentation cancellation remain separately scoped work.
+The v0.0.31 standing presentation result was invalidated by a client crash when native `AttackState` attempted a player reaction against an `IsoZombie` target. Version 0.0.32 removed that coupling without a repeated crash, but an isolated pair stopped outside collision range. Version 0.0.33 tightens contact closure and awaits controlled validation. Crawlers and stale-presentation cancellation remain separately scoped work.
 
 ## Diagnostic harness
 
-The administrator Horde Spawning extension and SPIKE checkbox are controlled-test tooling, not production enrollment. Vanilla spawning remains unchanged when the checkbox is disabled. Procedures and results are maintained in [`TESTING.md`](TESTING.md), [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md), and [`spikes/`](spikes/).
+The administrator Horde Spawning extension and SPIKE checkbox are controlled-test tooling, not production enrollment. The extension reuses the vanilla Horde Spawner controls after resizing the window; it must not layer duplicate controls at the same coordinates. Vanilla spawning remains unchanged when the checkbox is disabled. Procedures and results are maintained in [`TESTING.md`](TESTING.md), [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md), and [`spikes/`](spikes/).

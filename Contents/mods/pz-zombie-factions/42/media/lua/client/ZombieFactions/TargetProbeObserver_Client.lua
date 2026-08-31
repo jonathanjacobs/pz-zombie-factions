@@ -15,10 +15,11 @@ local CLIENT_TICKS_PER_SECOND = 60
 local MAX_TRACK_TICKS = 60 * CLIENT_TICKS_PER_SECOND
 local MIN_SAFE_TARGET_DISTANCE = 0.10
 local ENGAGEMENT_DISTANCE = 1.20
-local MELEE_COMMITMENT_DISTANCE = 0.90
+local CONTACT_DISTANCE = 0.50
+local MELEE_COMMITMENT_DISTANCE = 0.65
 local APPROACH_SLOT_COUNT = 24
-local APPROACH_INNER_RADIUS = 0.65
-local APPROACH_OUTER_RADIUS = 0.90
+local APPROACH_INNER_RADIUS = 0.25
+local APPROACH_OUTER_RADIUS = 0.40
 local NO_PROGRESS_BASE_TICKS = 5 * CLIENT_TICKS_PER_SECOND
 local NO_PROGRESS_STAGGER_TICKS = 2 * CLIENT_TICKS_PER_SECOND
 local PROGRESS_DISTANCE = 0.35
@@ -26,7 +27,7 @@ local PROGRESS_DISTANCE = 0.35
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.32")
+print("[ZombieFactions] Client target observer loaded v0.0.33")
 
 local function print(message)
     CombatController.detail(message)
@@ -410,9 +411,10 @@ local function enterPursuit(record, reason, forceRefresh)
     end
 
     local previousMode = record.controlMode
-    record.controlMode = "pursuit"
+    local desiredMode = reason == "contact-close" and "contact-closing" or "pursuit"
+    record.controlMode = desiredMode
     if forceRefresh
-        or previousMode ~= "pursuit"
+        or previousMode ~= desiredMode
         or candidateMovedFromPath(record)
         or record.pathRefreshCountdown <= 0
     then
@@ -759,17 +761,20 @@ local function updateTargetRecord(record, stepTicks)
 
     if distance <= ENGAGEMENT_DISTANCE then
         areaClear, areaReason = engagementAreaClear(record)
-        if areaClear then
+        if areaClear and distance <= CONTACT_DISTANCE then
             enterEngagement(record, areaReason)
         else
-            enterPursuit(record, "approach:" .. tostring(areaReason), false)
+            local pursuitReason = areaClear
+                and "contact-close"
+                or "approach:" .. tostring(areaReason)
+            enterPursuit(record, pursuitReason, false)
         end
     else
         enterPursuit(record, "approach:" .. tostring(areaReason), false)
     end
     local meleeCommitted = distance <= MELEE_COMMITMENT_DISTANCE
         and areaClear
-        and record.controlMode == "engagement"
+        and (record.controlMode == "contact-closing" or record.controlMode == "engagement")
         and currentTarget(zombie) == nil
     if meleeCommitted then
         CombatController.authorizeMelee(record.subjectId, record.candidateId)
@@ -778,7 +783,7 @@ local function updateTargetRecord(record, stepTicks)
         end
     end
     record.meleeCommitted = meleeCommitted
-    updateProgress(record, distance, stepTicks, meleeCommitted)
+    updateProgress(record, distance, stepTicks, meleeCommitted and record.controlMode == "engagement")
     printSnapshot(record, "observe", false)
 end
 
