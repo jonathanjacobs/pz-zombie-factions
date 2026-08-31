@@ -8,7 +8,7 @@ A Project Zomboid Build 42 framework for zombie-faction identity and directional
 
 ## Current state
 
-SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 remains active: v0.0.32 eliminated the native-target crash and preserved crowd damage, but isolated pairs could animate without reaching the collision required for damage. Version 0.0.34 carries the v0.0.33 contact, sound, and reaction candidate with a corrected visible Horde Spawner control row.
+SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 closed successfully for the dedicated-server, one-client standing-zombie scope: v0.0.34 produced isolated-pair contact, audible bites, validated damage, defender reactions, and no repeat of the native-target crash. The same run confirmed the restored Horde Spawner controls and first-click behavior.
 
 The current implementation remains diagnostic tooling. The administrator Horde Spawning extension creates selected test factions and an opt-in SPIKE harness; ordinary vanilla spawning remains unchanged when it is disabled. Production enrollment, persistence, and relationship behavior outside the harness remain planned work.
 
@@ -17,7 +17,7 @@ The current implementation remains diagnostic tooling. The administrator Horde S
 - Zombies resolve to one zombie faction; `zf:vanilla` is the default.
 - Relationships are directional and use `FRIENDLY`, `NEUTRAL`, or `HOSTILE`.
 - Default installation preserves normal vanilla behavior.
-- Standing faction bites, sounds, and defender reactions are active test candidates; crawlers and stale air-bite cancellation are not yet accepted behavior.
+- Standing faction bites, sounds, and defender reactions are validated diagnostic behavior for the current dedicated-server, one-client scope; two-client ownership, crawlers, and stale air-bite cancellation remain follow-up work.
 - Only explicitly enrolled diagnostic zombies participate today.
 
 ## Documentation

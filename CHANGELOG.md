@@ -7,7 +7,8 @@ Horde Spawner visibility correction for [#5](https://github.com/jonathanjacobs/p
 - restores the proven post-resize independent bottom controls because Build 42 does not reliably relocate the vanilla `anchorBottom` controls after the extension changes the final window height;
 - explicitly disables and hides the displaced vanilla controls so only one interactive control set exists;
 - allows the independent Spawn button to process mouse-up when window focus consumes the corresponding mouse-down, addressing the reported intermittent second-click requirement;
-- retains the v0.0.33 contact, sound, and reaction changes unchanged for the next Issue #3 test.
+- retains the v0.0.33 contact, sound, and reaction changes unchanged;
+- passes controlled dedicated-server, one-client validation for isolated standing combat and Horde Spawner visibility/first-click behavior, closing the tested scopes of Issues #3 and #5.
 
 ## 0.0.33 — 2026-08-30
 

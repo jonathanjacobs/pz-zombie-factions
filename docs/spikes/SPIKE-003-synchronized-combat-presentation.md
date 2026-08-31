@@ -1,6 +1,6 @@
 # SPIKE-003 — Explicitly Synchronized Combat Presentation
 
-Status: Active — v0.0.32 removed the crash but exposed an isolated-contact gap; v0.0.34 awaits validation
+Status: Closed successfully — 2026-08-30 (dedicated server, one client, standing zombies)
 Target: Project Zomboid Build 42.20.x
 
 ## Question
@@ -33,6 +33,12 @@ The isolated opening pair repeatedly armed and completed bite presentation while
 
 The same run produced no faction bite sound and only one reaction clip. Version 0.0.33 emits `ZombieBite` once per collision-driven request and randomly selects four bounded reaction clips. The Horde Spawner also reused duplicate bottom coordinates; v0.0.33 removes the duplicate controls and lays out the original controls after resizing.
 
+## v0.0.34 result
+
+The controlled dedicated-server, one-client run passed the standing scope. Before reinforcements were spawned, the isolated opening pair produced six collision-driven requests and sounds on the client, while the server had already accepted two damage applications. Across the full run, the client recorded 218 collisions, 218 impact requests, 218 bite sounds, and 17 armed reactions. The server accepted 132 damage acknowledgments. `impactExactTarget=0` and `nativeZombieTargetsCleared=0` remained true, and neither faction controller errors nor the v0.0.31 crash signature appeared.
+
+The Horde Spawner rendered its independent post-resize controls. Four client spawn successes matched four server spawn events, and direct observation confirmed successful first-click behavior. The server rejected 81 requests by distance; that tuning remains tracked by Issue #1 and does not invalidate the accepted hits. This run did not exercise two-client ownership separation or crawler presentation.
+
 ## Controlled validation
 
 1. Start a dedicated server and one client with clean v0.0.34 logs. Confirm the four bottom Horde Spawner controls are visible and one Spawn click produces exactly one spawn before beginning combat validation.
@@ -45,6 +51,8 @@ The same run produced no faction bite sound and only one reaction clip. Version 
 8. Stress standing crowds before introducing mixed crawler crowds. Crawlers remain deferred and should increment `crawlerBitesDeferred` without entering standing presentation.
 9. Independently verify that one Spawn-button click creates exactly one client success and one server spawn request.
 
-## Acceptance
+## Closeout
 
-SPIKE-003 remains open until direct multiplayer observation confirms the v0.0.34 no-native-target invariant, reliable isolated-pair collision and damage, audible bite feedback, readable reaction variety, clean ownership behavior, and absence of the v0.0.31 crash. Issue #4 continues to track non-crashing stale/air-bite polish separately; Issue #5 tracks Horde Spawner visibility and first-click input.
+SPIKE-003 answers its question affirmatively for standing zombies in the tested dedicated-server, one-client configuration. A locally owned attacker can present a shipped native bite, collision-timed sound, and server-validated damage while the target owner presents bounded reactions, without attaching the defender as a native target or entering player-oriented `AttackState` behavior. Issue #3 may close for that original standing-animation scope, and Issue #5 may close for the validated Horde Spawner correction.
+
+Two-client ownership separation and crawler presentation remain explicit follow-up validation rather than implied closeout evidence. Issue #4 continues to track non-crashing stale/air-bite polish, and Issue #1 continues to track distance-rejected requests.

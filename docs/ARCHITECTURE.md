@@ -39,7 +39,7 @@ Stable server-runtime mobs cap membership through `ZombieFactions.ZombieMobSize`
 
 For standing, non-crawling faction pairs, the owner client enters a mod-owned bumped-state mapping to the shipped `Zombie_Bite_Start` and `Zombie_Bite_Success` clips only while the attacker's native target is clear. The presentation does not use player hit packets, `pathToCharacter` with a zombie target, native `setTarget(IsoZombie)`, or `bAttack` writes. Collision remains the trigger for the separately validated impact route and one owner-local `ZombieBite` sound. After a target owner applies a server-dispatched nonlethal hit, it may select one of four mod-owned bumped reactions mapped to shipped left/right shoulder and chest clips.
 
-The v0.0.31 standing presentation result was invalidated by a client crash when native `AttackState` attempted a player reaction against an `IsoZombie` target. Version 0.0.32 removed that coupling without a repeated crash, but an isolated pair stopped outside collision range. Version 0.0.33 tightens contact closure and awaits controlled validation. Crawlers and stale-presentation cancellation remain separately scoped work.
+The v0.0.31 standing presentation result was invalidated by a client crash when native `AttackState` attempted a player reaction against an `IsoZombie` target. Version 0.0.32 removed that coupling without a repeated crash but left an isolated pair outside collision range. The v0.0.34 controlled dedicated-server, one-client run validated the tighter v0.0.33 contact closure, collision-timed sound, damage, and bounded reactions without repeating the crash. Two-client ownership separation, crawlers, and stale-presentation cancellation remain separately scoped work.
 
 ## Diagnostic harness
 
