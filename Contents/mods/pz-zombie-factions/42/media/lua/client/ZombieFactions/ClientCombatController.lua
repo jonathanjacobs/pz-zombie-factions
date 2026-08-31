@@ -124,9 +124,11 @@ local function printSummary()
     end
 
     print(string.format(
-        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d nativeZombieTargetsCleared=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d biteSoundsPlayed=%d biteSoundsSuppressed=%d crawlerBitesDeferred=%d hitReactionsArmed=%d hitReactionsSuppressed=%d hitReactionsExpired=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",
+        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d clientCollisionDistance=%.2f serverValidationDistance=%.2f controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d nativeZombieTargetsCleared=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d biteSoundsPlayed=%d biteSoundsSuppressed=%d crawlerBitesDeferred=%d hitReactionsArmed=%d hitReactionsSuppressed=%d hitReactionsExpired=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",
         trackedTargets,
         trackedImpacts,
+        gauge("clientCollisionDistance"),
+        gauge("serverValidationDistance"),
         metric("controllerPasses"),
         metric("zombieIndexBuilds"),
         metric("pursuitCommands"),

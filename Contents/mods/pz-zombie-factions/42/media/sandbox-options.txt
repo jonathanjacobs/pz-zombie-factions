@@ -9,3 +9,23 @@ option ZombieFactions.ZombieMobSize
     page = ZombieFactions,
     translation = ZombieFactions_ZombieMobSize,
 }
+
+option ZombieFactions.ClientCollisionDistance
+{
+    type = double,
+    min = 0.25,
+    max = 2.00,
+    default = 0.80,
+    page = ZombieFactions,
+    translation = ZombieFactions_ClientCollisionDistance,
+}
+
+option ZombieFactions.ServerValidationDistance
+{
+    type = double,
+    min = 0.25,
+    max = 2.00,
+    default = 1.60,
+    page = ZombieFactions,
+    translation = ZombieFactions_ServerValidationDistance,
+}

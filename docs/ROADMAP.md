@@ -11,12 +11,12 @@ The validated diagnostic combat route is not yet normal gameplay behavior. The n
 
 - [x] Validate standing faction-combat presentation without a native zombie target, including isolated-pair contact, sound, damage, reactions, and absence of the prior client crash ([#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3); [SPIKE-003](spikes/SPIKE-003-synchronized-combat-presentation.md)).
 - [x] Restore visible Horde Spawner controls and confirm one server spawn for each first-click client success ([#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5)).
+- [x] Add independently configurable client/server combat-distance gates and adopt `0.80`/`1.60` as the defaults without weakening the remaining authority checks ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1)).
 
 ### Open follow-up work
 
 - [ ] Prevent stale faction bite presentations without truncating a valid bite ([#4](https://github.com/jonathanjacobs/pz-zombie-factions/issues/4)).
 - [ ] Restore event-driven recovery for a dormant member while another mob member remains active ([#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2)).
-- [ ] Reduce server distance-rejected impact requests without weakening validation ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1)).
 - [ ] Validate the Red/Blue/Vanilla relationship matrix, including expected Neutral behavior.
 - [ ] Profile client FPS and server load at mob size `8`, then test larger mobs only if the evidence supports it.
 - [ ] Validate two-client attacker/defender ownership separation, real ownership transfer, save/restart, and relevance lifecycle transitions.

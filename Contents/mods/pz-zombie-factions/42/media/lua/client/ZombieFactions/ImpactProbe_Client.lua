@@ -9,7 +9,10 @@ local APPLY_COMMAND = "TargetProbeApplyDamage"
 local ACK_COMMAND = "TargetProbeDamageAck"
 local RESULT_COMMAND = "TargetProbeDamageResult"
 
-local MAX_DISTANCE = 0.90
+local CLIENT_COLLISION_DISTANCE_DEFAULT = 0.80
+local SERVER_VALIDATION_DISTANCE_DEFAULT = 1.60
+local COMBAT_DISTANCE_MIN = 0.25
+local COMBAT_DISTANCE_MAX = 2.00
 local RESOLVE_TICKS = 120
 local REQUEST_COOLDOWN_TICKS = 60
 local CLIENT_TICKS_PER_SECOND = 60
@@ -33,7 +36,7 @@ local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
 local activeHitReactions = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.34")
+print("[ZombieFactions] Client impact probe loaded v0.0.35")
 
 local function print(message)
     CombatController.detail(message)
@@ -57,6 +60,12 @@ end
 
 local function health(zombie)
     return tonumber(safeCall(-1, function() return zombie:getHealth() end)) or -1
+end
+
+local function boundedCombatDistance(value, fallback)
+    local distanceValue = tonumber(value)
+    if not distanceValue or distanceValue ~= distanceValue then return fallback end
+    return math.max(COMBAT_DISTANCE_MIN, math.min(COMBAT_DISTANCE_MAX, distanceValue))
 end
 
 local function isDead(zombie)
@@ -154,13 +163,17 @@ local function resolve(record)
     record.cooldown = 0
     record.bumpTicks = nil
     tracked[record.subjectId] = record
+    CombatController.setGauge("clientCollisionDistance", record.clientCollisionDistance)
+    CombatController.setGauge("serverValidationDistance", record.serverValidationDistance)
 
     print(string.format(
-        "[ZombieFactions][%s][IMPACT_PROBE] tracking subject=%d candidate=%d owner=%s candidateHealth=%.3f",
+        "[ZombieFactions][%s][IMPACT_PROBE] tracking subject=%d candidate=%d owner=%s clientCollisionDistance=%.2f serverValidationDistance=%.2f candidateHealth=%.3f",
         record.runId,
         record.subjectId,
         record.candidateId,
         ownerUsername(subject),
+        record.clientCollisionDistance,
+        record.serverValidationDistance,
         health(candidate)
     ))
     return true
@@ -386,6 +399,14 @@ local function onServerCommand(module, command, args)
             expiresInSeconds = tonumber(args.expiresInSeconds) or 60,
             persistent = args.persistent == true,
             ticks = RESOLVE_TICKS,
+            clientCollisionDistance = boundedCombatDistance(
+                args.clientCollisionDistance,
+                CLIENT_COLLISION_DISTANCE_DEFAULT
+            ),
+            serverValidationDistance = boundedCombatDistance(
+                args.serverValidationDistance,
+                SERVER_VALIDATION_DISTANCE_DEFAULT
+            ),
         }
     elseif command == RESULT_COMMAND then
         if tostring(args.requester) ~= player:getUsername() then return end
@@ -457,7 +478,7 @@ local function updateImpactRecord(record, stepTicks)
         return
     end
     CombatController.increment("impactAuthorizedWithoutExact")
-    if dist > MAX_DISTANCE then
+    if dist > record.clientCollisionDistance then
         clearExpiredFactionBite(record)
         CombatController.increment("impactSuppressed")
         CombatController.increment("impactOutOfRange")
@@ -495,11 +516,12 @@ local function onCharacterCollide(first, second)
         if not record or record.candidateId ~= firstId then return end
     end
     if not record.subject or not record.candidate or (record.bumpTicks or 0) <= 0 then return end
+    local collisionDistance = distance(record.subject, record.candidate)
     if isDead(record.subject) or isDead(record.candidate)
         or isCrawler(record.subject) or isCrawler(record.candidate)
         or not CombatController.isMeleeAuthorized(record.subjectId, record.candidateId)
         or not sameLevel(record.subject, record.candidate)
-        or distance(record.subject, record.candidate) > MAX_DISTANCE
+        or collisionDistance > record.clientCollisionDistance
         or isUnsafeCombatPair(record.subject, record.candidate)
     then
         clearExpiredFactionBite(record)
@@ -523,14 +545,23 @@ local function onCharacterCollide(first, second)
         runId = record.runId,
         subjectId = record.subjectId,
         candidateId = record.candidateId,
+        clientDistanceAtCollision = collisionDistance,
+        clientCollisionDistance = record.clientCollisionDistance,
+        serverValidationDistance = record.serverValidationDistance,
     })
     playBiteSound(record.subject)
     CombatController.increment("biteCollisions")
     CombatController.increment("impactRequests")
     CombatController.increment("customAttackHits")
     print(string.format(
-        "[ZombieFactions][%s][BITE_COLLISION] request subject=%d candidate=%d distance=%.2f clientCandidateHealth=%.3f",
-        record.runId, record.subjectId, record.candidateId, distance(record.subject, record.candidate), health(record.candidate)
+        "[ZombieFactions][%s][BITE_COLLISION] request subject=%d candidate=%d clientDistanceAtCollision=%.2f clientCollisionDistance=%.2f serverValidationDistance=%.2f clientCandidateHealth=%.3f",
+        record.runId,
+        record.subjectId,
+        record.candidateId,
+        collisionDistance,
+        record.clientCollisionDistance,
+        record.serverValidationDistance,
+        health(record.candidate)
     ))
 end
 

@@ -27,7 +27,7 @@ local PROGRESS_DISTANCE = 0.35
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.34")
+print("[ZombieFactions] Client target observer loaded v0.0.35")
 
 local function print(message)
     CombatController.detail(message)
@@ -705,12 +705,14 @@ local function onServerCommand(module, command, args)
         mobId = tonumber(args.mobId) or 0,
         mobLeaderId = tonumber(args.mobLeaderId) or subjectId,
         mobMemberIndex = tonumber(args.mobMemberIndex) or 1,
+        clientCollisionDistance = tonumber(args.clientCollisionDistance) or 0.80,
+        serverValidationDistance = tonumber(args.serverValidationDistance) or 1.60,
         ticks = RESOLVE_RETRY_TICKS,
         scanCountdown = 0,
     }
 
     print(string.format(
-        "[ZombieFactions][%s][ACQUISITION_PROBE] phase=instruction grant=%d reason=%s subject=%d candidate=%d sourceFaction=%s targetFaction=%s relationship=%s serverOwner=%s expiresInTicks=%d",
+        "[ZombieFactions][%s][ACQUISITION_PROBE] phase=instruction grant=%d reason=%s subject=%d candidate=%d sourceFaction=%s targetFaction=%s relationship=%s serverOwner=%s clientCollisionDistance=%.2f serverValidationDistance=%.2f expiresInTicks=%d",
         tostring(args.runId or "SPIKE001"),
         tonumber(args.grantCount) or 1,
         tostring(args.grantReason or "acquired"),
@@ -720,6 +722,8 @@ local function onServerCommand(module, command, args)
         tostring(args.candidateFactionId or "unknown"),
         tostring(args.relationship or "unknown"),
         tostring(args.owner or "none"),
+        tonumber(args.clientCollisionDistance) or 0.80,
+        tonumber(args.serverValidationDistance) or 1.60,
         tonumber(args.expiresInTicks) or MAX_TRACK_TICKS
     ))
 end

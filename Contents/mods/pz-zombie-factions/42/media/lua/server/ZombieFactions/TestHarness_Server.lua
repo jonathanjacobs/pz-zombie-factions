@@ -37,12 +37,30 @@ local TARGET_AVOID_PENALTY = 10000
 local DISCOVERY_BUCKET_SIZE = TARGET_PROBE_RADIUS
 local DISCOVERY_INDEX_REFRESH_TICKS = 5
 local DAMAGE_PROBE_AMOUNT = 0.25
-local DAMAGE_PROBE_MAX_DISTANCE = 1.25
+local CLIENT_COLLISION_DISTANCE_DEFAULT = 0.80
+local SERVER_VALIDATION_DISTANCE_DEFAULT = 1.60
+local COMBAT_DISTANCE_MIN = 0.25
+local COMBAT_DISTANCE_MAX = 2.00
 local DAMAGE_PROBE_COOLDOWN_TICKS = 10
 local DAMAGE_PROBE_ACK_TIMEOUT_TICKS = 120
 local DAMAGE_PROBE_HEALTH_EPSILON = 0.01
 local PERFORMANCE_SUMMARY_TICKS = 5 * SERVER_TICKS_PER_SECOND
 local SERVER_VERBOSE_DIAGNOSTICS = false
+
+local function combatDistanceOption(name, fallback)
+    local options = SandboxVars and SandboxVars.ZombieFactions
+    local value = options and tonumber(options[name]) or fallback
+    if not value or value ~= value then return fallback end
+    return math.max(COMBAT_DISTANCE_MIN, math.min(COMBAT_DISTANCE_MAX, value))
+end
+
+local function configuredClientCollisionDistance()
+    return combatDistanceOption("ClientCollisionDistance", CLIENT_COLLISION_DISTANCE_DEFAULT)
+end
+
+local function configuredServerValidationDistance()
+    return combatDistanceOption("ServerValidationDistance", SERVER_VALIDATION_DISTANCE_DEFAULT)
+end
 
 ZombieFactions.TestHarnessSequence = ZombieFactions.TestHarnessSequence or 0
 ZombieFactions.PendingAssignmentValidations = ZombieFactions.PendingAssignmentValidations or {}
@@ -59,7 +77,11 @@ ZombieFactions.PendingMobWakeups = ZombieFactions.PendingMobWakeups or {}
 ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
-alwaysPrint("[ZombieFactions] Server test harness loaded v0.0.34")
+alwaysPrint(string.format(
+    "[ZombieFactions] Server test harness loaded v0.0.35 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    configuredClientCollisionDistance(),
+    configuredServerValidationDistance()
+))
 
 local function print(message)
     if SERVER_VERBOSE_DIAGNOSTICS then alwaysPrint(message) end
@@ -75,6 +97,18 @@ end
 
 local function performanceValue(name)
     return performanceCounters[name] or 0
+end
+
+local function setPerformanceMax(name, value)
+    value = tonumber(value)
+    if not value then return end
+    performanceCounters[name] = math.max(performanceCounters[name] or 0, value)
+end
+
+local function performanceAverage(totalName, sampleName)
+    local samples = performanceValue(sampleName)
+    if samples <= 0 then return 0 end
+    return performanceValue(totalName) / samples
 end
 
 local function printPerformanceSummary()
@@ -93,7 +127,9 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageAccepted=%d",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f",
+        configuredClientCollisionDistance(),
+        configuredServerValidationDistance(),
         mobCount,
         mobMembers,
         dormantCount,
@@ -119,7 +155,13 @@ local function printPerformanceSummary()
         performanceValue("damageDispatched"),
         performanceValue("damageRejected"),
         performanceValue("damageDistanceRejected"),
-        performanceValue("damageAccepted")
+        performanceValue("damageConfigMismatch"),
+        performanceValue("damageAccepted"),
+        performanceAverage("damageDispatchedServerDistanceTotal", "damageDispatchedDistanceSamples"),
+        performanceAverage("damageDispatchedClientDistanceTotal", "damageDispatchedClientDistanceSamples"),
+        performanceAverage("damageDistanceRejectedServerDistanceTotal", "damageDistanceRejectedDistanceSamples"),
+        performanceValue("damageDistanceRejectedServerDistanceMax"),
+        performanceAverage("damageDistanceRejectedClientDistanceTotal", "damageDistanceRejectedClientDistanceSamples")
     ))
     performanceCounters = {}
 end
@@ -873,6 +915,10 @@ local function sendTargetGrant(record, reason)
     local owner = ownerUsername(record.subject)
     if not player or owner == "none" or owner == "unknown" then return false end
 
+    record.clientCollisionDistance = record.clientCollisionDistance
+        or configuredClientCollisionDistance()
+    record.serverValidationDistance = record.serverValidationDistance
+        or configuredServerValidationDistance()
     record.ownerAtGrant = owner
     record.grantCount = (record.grantCount or 0) + 1
     local payload = {
@@ -891,6 +937,8 @@ local function sendTargetGrant(record, reason)
         mobId = record.mobId,
         mobLeaderId = record.mobLeaderId,
         mobMemberIndex = record.mobMemberIndex,
+        clientCollisionDistance = record.clientCollisionDistance,
+        serverValidationDistance = record.serverValidationDistance,
     }
     if record.persistent ~= true then
         payload.expiresInTicks = record.remaining
@@ -900,7 +948,7 @@ local function sendTargetGrant(record, reason)
     countPerformance("grants")
 
     print(string.format(
-        "[ZombieFactions][%s][ACQUISITION_PROBE] phase=grant reason=%s grant=%d subject=%d sourceFaction=%s owner=%s candidate=%d targetFaction=%s relationship=%s distance=%.2f expiresInTicks=%d candidateHealth=%.3f requester=%s",
+        "[ZombieFactions][%s][ACQUISITION_PROBE] phase=grant reason=%s grant=%d subject=%d sourceFaction=%s owner=%s candidate=%d targetFaction=%s relationship=%s distance=%.2f clientCollisionDistance=%.2f serverValidationDistance=%.2f expiresInTicks=%d candidateHealth=%.3f requester=%s",
         record.runId,
         tostring(reason or "acquired"),
         record.grantCount,
@@ -911,6 +959,8 @@ local function sendTargetGrant(record, reason)
         tostring(record.targetFaction),
         tostring(record.relationship),
         math.sqrt(distanceSquared(record.subject, record.candidate)),
+        record.clientCollisionDistance,
+        record.serverValidationDistance,
         record.remaining,
         healthValue(record.candidate),
         tostring(record.requester)
@@ -947,6 +997,8 @@ local function activateTargetProbe(record, candidate, sourceFaction, targetFacti
         mobId = mobId,
         mobLeaderId = mobLeaderId,
         mobMemberIndex = mobMemberIndex,
+        clientCollisionDistance = configuredClientCollisionDistance(),
+        serverValidationDistance = configuredServerValidationDistance(),
     }
     ZombieFactions.ActiveTargetProbes[#ZombieFactions.ActiveTargetProbes + 1] = active
     sendTargetGrant(active, reason)
@@ -1470,10 +1522,38 @@ local function handleDamageProbe(player, args)
     end
 
     local distance = math.sqrt(distanceSquared(record.subject, record.candidate))
-    if distance > DAMAGE_PROBE_MAX_DISTANCE then
+    local clientDistanceAtCollision = tonumber(args.clientDistanceAtCollision)
+    local clientCollisionDistance = tonumber(args.clientCollisionDistance)
+    local effectiveClientCollisionDistance = record.clientCollisionDistance
+        or configuredClientCollisionDistance()
+    local serverValidationDistance = record.serverValidationDistance
+        or configuredServerValidationDistance()
+    local reportedServerValidationDistance = tonumber(args.serverValidationDistance)
+    if not clientCollisionDistance
+        or not reportedServerValidationDistance
+        or math.abs(clientCollisionDistance - effectiveClientCollisionDistance) > 0.001
+        or math.abs(reportedServerValidationDistance - serverValidationDistance) > 0.001
+    then
+        countPerformance("damageConfigMismatch")
+    end
+    if distance > serverValidationDistance then
         countPerformance("damageRejected")
         countPerformance("damageDistanceRejected")
-        print(string.format("[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=distance distance=%.2f max=%.2f", runId, distance, DAMAGE_PROBE_MAX_DISTANCE))
+        countPerformance("damageDistanceRejectedServerDistanceTotal", distance)
+        countPerformance("damageDistanceRejectedDistanceSamples")
+        setPerformanceMax("damageDistanceRejectedServerDistanceMax", distance)
+        if clientDistanceAtCollision and clientDistanceAtCollision >= 0 then
+            countPerformance("damageDistanceRejectedClientDistanceTotal", clientDistanceAtCollision)
+            countPerformance("damageDistanceRejectedClientDistanceSamples")
+        end
+        print(string.format(
+            "[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=distance serverDistance=%.2f clientDistanceAtCollision=%s clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+            runId,
+            distance,
+            tostring(clientDistanceAtCollision),
+            effectiveClientCollisionDistance,
+            serverValidationDistance
+        ))
         return
     end
 
@@ -1501,15 +1581,24 @@ local function handleDamageProbe(player, args)
     }
     record.damageCooldown = DAMAGE_PROBE_COOLDOWN_TICKS
     countPerformance("damageDispatched")
+    countPerformance("damageDispatchedServerDistanceTotal", distance)
+    countPerformance("damageDispatchedDistanceSamples")
+    if clientDistanceAtCollision and clientDistanceAtCollision >= 0 then
+        countPerformance("damageDispatchedClientDistanceTotal", clientDistanceAtCollision)
+        countPerformance("damageDispatchedClientDistanceSamples")
+    end
 
     print(string.format(
-        "[ZombieFactions][%s][DAMAGE_PROBE] phase=dispatch hitId=%s subject=%d candidate=%d targetOwner=%s distance=%.2f amount=%.3f serverBeforeHealth=%.3f",
+        "[ZombieFactions][%s][DAMAGE_PROBE] phase=dispatch hitId=%s subject=%d candidate=%d targetOwner=%s serverDistance=%.2f clientDistanceAtCollision=%s clientCollisionDistance=%.2f serverValidationDistance=%.2f amount=%.3f serverBeforeHealth=%.3f",
         runId,
         hitId,
         record.subjectId,
         record.candidateId,
         targetOwner,
         distance,
+        tostring(clientDistanceAtCollision),
+        effectiveClientCollisionDistance,
+        serverValidationDistance,
         DAMAGE_PROBE_AMOUNT,
         beforeHealth
     ))

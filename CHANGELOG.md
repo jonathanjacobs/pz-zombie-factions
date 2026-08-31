@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.35 — 2026-08-30
+
+Distance-envelope tuning harness for [#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1).
+
+- adds bounded `Client Collision Distance` and `Server Validation Distance` sandbox options, with `0.80` and `1.60` tiles adopted as the accepted defaults;
+- snapshots both values into each server grant so the owner client and server evaluate one consistent test configuration;
+- retains real character collision as the only request source and retains server distance, identity, policy, ownership, level, cooldown, and liveness validation;
+- logs the effective values on load, grants, client summaries, collision requests, server summaries, dispatches, and distance rejections;
+- adds server-side distance averages, rejected-distance maximum, client collision-distance averages, and configuration-mismatch counts for controlled 1v1 and mob-size comparisons.
+
 ## 0.0.34 — 2026-08-30
 
 Horde Spawner visibility correction for [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5).

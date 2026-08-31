@@ -2,4 +2,8 @@ Sandbox_EN = {
     Sandbox_ZombieFactions = "Zombie Factions",
     Sandbox_ZombieFactions_ZombieMobSize = "Zombie Mob Size",
     Sandbox_ZombieFactions_ZombieMobSize_tooltip = "Maximum stable membership of a local faction mob, including its leader. The leader alone scans for enemies; followers remain dormant until the mob acquires a target or is attacked. New zombies join once within the vanilla Rally Travel Distance. 1 keeps individual acquisition. 0 removes the local membership cap. Runtime membership ends only on death, invalid identity, or faction change.",
+    Sandbox_ZombieFactions_ClientCollisionDistance = "Client Collision Distance",
+    Sandbox_ZombieFactions_ClientCollisionDistance_tooltip = "Diagnostic maximum planar distance in tiles at which the owning client may arm and send a collision-driven faction hit request. A real character-collision event is still required. Default 0.80; allowed range 0.25 to 2.00. The effective value is recorded in the logs and snapshotted per target grant.",
+    Sandbox_ZombieFactions_ServerValidationDistance = "Server Validation Distance",
+    Sandbox_ZombieFactions_ServerValidationDistance_tooltip = "Maximum server-measured planar distance in tiles at which a faction hit request may pass distance validation. Requests beyond it are rejected, and all other authority checks remain active. Default 1.60; allowed range 0.25 to 2.00. Raising this value expands the accepted damage envelope, so use controlled tests.",
 }
