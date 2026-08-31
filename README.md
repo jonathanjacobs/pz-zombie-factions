@@ -3,12 +3,12 @@
 A Project Zomboid Build 42 framework for zombie-faction identity and directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationships.
 
 - Status: **Research / Pre-Alpha**
-- Current version: **v0.0.33**
+- Current version: **v0.0.34**
 - Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Current state
 
-SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 remains active: v0.0.32 eliminated the native-target crash and preserved crowd damage, but isolated pairs could animate without reaching the collision required for damage. Version 0.0.33 tightens contact pursuit and adds collision-timed sound plus varied cosmetic defender reactions for controlled retesting.
+SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 remains active: v0.0.32 eliminated the native-target crash and preserved crowd damage, but isolated pairs could animate without reaching the collision required for damage. Version 0.0.34 carries the v0.0.33 contact, sound, and reaction candidate with a corrected visible Horde Spawner control row.
 
 The current implementation remains diagnostic tooling. The administrator Horde Spawning extension creates selected test factions and an opt-in SPIKE harness; ordinary vanilla spawning remains unchanged when it is disabled. Production enrollment, persistence, and relationship behavior outside the harness remain planned work.
 

@@ -10,7 +10,7 @@ local REL = ZombieFactions.Relationship
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.33")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.34")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -23,9 +23,10 @@ local function selectedData(combo)
     return option and option.data or nil
 end
 
-local function layoutHarnessBottomButtons(self, spacing, buttonHeight)
-    -- Reuse the vanilla controls. Creating a second set at these same coordinates
-    -- leaves overlapping buttons that can consume the first mouse interaction.
+local function addHarnessBottomButtons(self, spacing, buttonHeight)
+    -- Late resizing does not reliably relocate the vanilla anchorBottom controls.
+    -- Hide those displaced controls and create one independent visible set after
+    -- the final window height is known.
     local x = 11
     local gap = spacing
     local buttonWidth = math.floor((self:getWidth() - (x * 2) - gap) / 2)
@@ -33,18 +34,55 @@ local function layoutHarnessBottomButtons(self, spacing, buttonHeight)
     local upperY = bottomY - buttonHeight - spacing
     local rightX = x + buttonWidth + gap
 
-    self.removezombies:setX(x)
-    self.removezombies:setY(upperY)
-    self.removezombies:setWidth(buttonWidth)
-    self.clearbodies:setX(rightX)
-    self.clearbodies:setY(upperY)
-    self.clearbodies:setWidth(buttonWidth)
-    self.add:setX(x)
-    self.add:setY(bottomY)
-    self.add:setWidth(buttonWidth)
-    self.closeButton2:setX(rightX)
-    self.closeButton2:setY(bottomY)
-    self.closeButton2:setWidth(buttonWidth)
+    local vanillaControls = {self.removezombies, self.clearbodies, self.add, self.closeButton2}
+    for i = 1, #vanillaControls do
+        local control = vanillaControls[i]
+        if control then
+            control:setEnable(false)
+            control:setVisible(false)
+        end
+    end
+
+    self.zfRemoveZombiesButton = ISButton:new(
+        x, upperY, buttonWidth, buttonHeight,
+        getText("IGUI_SpawnHorde_RemoveZombies"),
+        self, ISSpawnHordeUI.onRemoveZombies
+    )
+    self.zfRemoveZombiesButton:initialise()
+    self.zfRemoveZombiesButton:instantiate()
+    self.zfRemoveZombiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
+    self.zfRemoveZombiesButton:setTooltip("Tip: Hold down Shift to remove all loaded zombies.")
+    self:addChild(self.zfRemoveZombiesButton)
+
+    self.zfRemoveBodiesButton = ISButton:new(
+        rightX, upperY, buttonWidth, buttonHeight,
+        getText("IGUI_SpawnHorde_RemoveBodies"),
+        self, ISSpawnHordeUI.onRemoveBodies
+    )
+    self.zfRemoveBodiesButton:initialise()
+    self.zfRemoveBodiesButton:instantiate()
+    self.zfRemoveBodiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
+    self:addChild(self.zfRemoveBodiesButton)
+
+    self.zfSpawnButton = ISButton:new(
+        x, bottomY, buttonWidth, buttonHeight,
+        getText("IGUI_StashDebug_Spawn"),
+        self, ISSpawnHordeUI.onSpawn, nil, true
+    )
+    self.zfSpawnButton:initialise()
+    self.zfSpawnButton:instantiate()
+    self.zfSpawnButton.borderColor = {r=1, g=1, b=1, a=0.1}
+    self:addChild(self.zfSpawnButton)
+
+    self.zfCloseButton = ISButton:new(
+        rightX, bottomY, buttonWidth, buttonHeight,
+        getText("IGUI_DebugMenu_Close"),
+        self, ISSpawnHordeUI.close
+    )
+    self.zfCloseButton:initialise()
+    self.zfCloseButton:instantiate()
+    self.zfCloseButton:enableCancelColor()
+    self:addChild(self.zfCloseButton)
 
     print(string.format(
         "[ZombieFactions][UI] windowHeight=%d harnessSpawnY=%d harnessRemoveY=%d buttonWidth=%d",
@@ -112,7 +150,7 @@ function ISSpawnHordeUI:createChildren()
     self.zfTargetProbe:addOption("SPIKE: test bounded faction acquisition/reacquisition")
     self.zfTargetProbe.selected[1] = false
 
-    layoutHarnessBottomButtons(self, spacing, rowHeight)
+    addHarnessBottomButtons(self, spacing, rowHeight)
 end
 
 local function buildFactionSpawnArgs(self, factionId)

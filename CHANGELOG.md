@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.34 — 2026-08-30
+
+Horde Spawner visibility correction for [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5).
+
+- restores the proven post-resize independent bottom controls because Build 42 does not reliably relocate the vanilla `anchorBottom` controls after the extension changes the final window height;
+- explicitly disables and hides the displaced vanilla controls so only one interactive control set exists;
+- allows the independent Spawn button to process mouse-up when window focus consumes the corresponding mouse-down, addressing the reported intermittent second-click requirement;
+- retains the v0.0.33 contact, sound, and reaction changes unchanged for the next Issue #3 test.
+
 ## 0.0.33 — 2026-08-30
 
 Contact, sound, reaction-variety, and Horde Spawner input corrections for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3) and [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5).

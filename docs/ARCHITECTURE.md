@@ -43,4 +43,4 @@ The v0.0.31 standing presentation result was invalidated by a client crash when 
 
 ## Diagnostic harness
 
-The administrator Horde Spawning extension and SPIKE checkbox are controlled-test tooling, not production enrollment. The extension reuses the vanilla Horde Spawner controls after resizing the window; it must not layer duplicate controls at the same coordinates. Vanilla spawning remains unchanged when the checkbox is disabled. Procedures and results are maintained in [`TESTING.md`](TESTING.md), [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md), and [`spikes/`](spikes/).
+The administrator Horde Spawning extension and SPIKE checkbox are controlled-test tooling, not production enrollment. Build 42 does not reliably relocate the vanilla `anchorBottom` controls after the extension resizes the window, so the displaced originals are hidden and one independent control set is created after the final height is known. Vanilla spawning remains unchanged when the checkbox is disabled. Procedures and results are maintained in [`TESTING.md`](TESTING.md), [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md), and [`spikes/`](spikes/).

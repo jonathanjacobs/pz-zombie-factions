@@ -1,6 +1,6 @@
 # SPIKE-003 — Explicitly Synchronized Combat Presentation
 
-Status: Active — v0.0.32 removed the crash but exposed an isolated-contact gap; v0.0.33 awaits validation
+Status: Active — v0.0.32 removed the crash but exposed an isolated-contact gap; v0.0.34 awaits validation
 Target: Project Zomboid Build 42.20.x
 
 ## Question
@@ -11,7 +11,7 @@ Can a locally owned faction zombie play a readable native bite and a target-owne
 
 ADR-001 remains in force. The server owns faction policy, pair grants, impact validation, and lethal finalization. Client presentation is best-effort and cannot create damage authority.
 
-Version 0.0.33 uses coordinate pursuit through the broad animation envelope, stops and faces the defender only at a tighter contact distance, and requires the attacker's native target to remain clear. A mod-owned `bumped` sequence maps to the shipped `Zombie_Bite_Start` and `Zombie_Bite_Success` clips. A real `OnCharacterCollide` event remains the only hit-request source and emits one owner-local shipped `ZombieBite` sound. After a server-dispatched nonlethal hit is applied, the target owner may select one of four mod-owned reactions mapped to shipped left/right shoulder and chest clips.
+Version 0.0.34 uses the v0.0.33 combat candidate unchanged: coordinate pursuit through the broad animation envelope, a tighter contact distance, and a clear attacker native target. A mod-owned `bumped` sequence maps to the shipped `Zombie_Bite_Start` and `Zombie_Bite_Success` clips. A real `OnCharacterCollide` event remains the only hit-request source and emits one owner-local shipped `ZombieBite` sound. After a server-dispatched nonlethal hit is applied, the target owner may select one of four mod-owned reactions mapped to shipped left/right shoulder and chest clips.
 
 The probe must not use `setTarget(IsoZombie)`, `pathToCharacter` with a zombie target, player hit packets, native `bAttack`, native hit-reaction state transitions, or standing clips for crawlers.
 
@@ -35,7 +35,7 @@ The same run produced no faction bite sound and only one reaction clip. Version 
 
 ## Controlled validation
 
-1. Start a dedicated server and one client with clean v0.0.33 logs.
+1. Start a dedicated server and one client with clean v0.0.34 logs. Confirm the four bottom Horde Spawner controls are visible and one Spawn click produces exactly one spawn before beginning combat validation.
 2. Spawn a standing 1v1 Red/Vanilla pair with both directions `HOSTILE` on clear, level ground.
 3. Before spawning reinforcements, confirm repeated Start-to-Success bites, nonzero `biteCollisions`, `impactRequests`, `biteSoundsPlayed`, accepted server damage, and varied target reactions when `hitReactionsArmed` increments.
 4. Require `impactExactTarget=0` throughout the accepted run. Investigate any `nativeZombieTargetsCleared` count; it is a recovered invariant violation, not normal engagement behavior.
@@ -47,4 +47,4 @@ The same run produced no faction bite sound and only one reaction clip. Version 
 
 ## Acceptance
 
-SPIKE-003 remains open until direct multiplayer observation confirms the v0.0.33 no-native-target invariant, reliable isolated-pair collision and damage, audible bite feedback, readable reaction variety, clean ownership behavior, and absence of the v0.0.31 crash. Issue #4 continues to track non-crashing stale/air-bite polish separately; Issue #5 tracks first-click Horde Spawner input.
+SPIKE-003 remains open until direct multiplayer observation confirms the v0.0.34 no-native-target invariant, reliable isolated-pair collision and damage, audible bite feedback, readable reaction variety, clean ownership behavior, and absence of the v0.0.31 crash. Issue #4 continues to track non-crashing stale/air-bite polish separately; Issue #5 tracks Horde Spawner visibility and first-click input.
