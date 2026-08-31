@@ -107,9 +107,9 @@ The mod must not require full-world zombie scans, uncontrolled command traffic, 
 
 ## Zombie-vs-zombie combat
 
-### R19 — Do not claim unsupported zombie-vs-zombie combat
+### R19 — Zombie combat must remain within validated authority boundaries
 
-Zombie-to-zombie hostility is not considered supported until controlled Build 42 testing demonstrates target acquisition, pursuit, attack-state entry, damage, death handling, and correct multiplayer synchronization.
+When zombie-to-zombie combat is enabled, it must use server-authorized pair grants, revalidated impacts, and server-finalized lethal outcomes. The project must limit compatibility and feature claims to controlled Build 42 evidence; unvalidated variants, including crawler presentation and reaction/sound behavior, must remain explicitly deferred.
 
 ## Scope separation
 

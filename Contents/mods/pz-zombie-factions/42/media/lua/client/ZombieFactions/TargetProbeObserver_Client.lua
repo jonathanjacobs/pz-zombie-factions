@@ -15,13 +15,10 @@ local CLIENT_TICKS_PER_SECOND = 60
 local MAX_TRACK_TICKS = 60 * CLIENT_TICKS_PER_SECOND
 local MIN_SAFE_TARGET_DISTANCE = 0.10
 local ENGAGEMENT_DISTANCE = 1.20
-local DISENGAGEMENT_DISTANCE = 1.35
 local MELEE_COMMITMENT_DISTANCE = 0.90
 local APPROACH_SLOT_COUNT = 24
 local APPROACH_INNER_RADIUS = 0.65
 local APPROACH_OUTER_RADIUS = 0.90
-local TARGET_REATTACH_BACKOFF_TICKS = 30
-local TARGET_REATTACH_FAILURE_BACKOFF_TICKS = 60
 local NO_PROGRESS_BASE_TICKS = 5 * CLIENT_TICKS_PER_SECOND
 local NO_PROGRESS_STAGGER_TICKS = 2 * CLIENT_TICKS_PER_SECOND
 local PROGRESS_DISTANCE = 0.35
@@ -29,7 +26,7 @@ local PROGRESS_DISTANCE = 0.35
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.31")
+print("[ZombieFactions] Client target observer loaded v0.0.32")
 
 local function print(message)
     CombatController.detail(message)
@@ -122,24 +119,31 @@ local function isTraversalState(state)
         or string.find(state, "vault", 1, true) ~= nil
 end
 
+local function isNativeCombatOrReactionState(state)
+    state = string.lower(tostring(state or ""))
+    return string.find(state, "attack", 1, true) ~= nil
+        or string.find(state, "lunge", 1, true) ~= nil
+        or string.find(state, "hitreaction", 1, true) ~= nil
+        or string.find(state, "stagger", 1, true) ~= nil
+        or string.find(state, "fall", 1, true) ~= nil
+        or string.find(state, "knock", 1, true) ~= nil
+        or string.find(state, "death", 1, true) ~= nil
+end
+
 local function safetyReason(subject, candidate)
     local subjectState = zombieState(subject)
     if isTraversalState(subjectState) then
         return "subject-traversal:" .. subjectState
     end
+    if isNativeCombatOrReactionState(subjectState) then
+        return "subject-native-state:" .. subjectState
+    end
     local candidateState = zombieState(candidate)
     if isTraversalState(candidateState) then
         return "candidate-traversal:" .. candidateState
     end
-    if string.find(string.lower(subjectState), "lunge", 1, true) ~= nil
-        and currentTarget(subject) == candidate
-    then
-        local vectorDistance = tonumber(safeCall(-1, function()
-            return subject:getVariableFloat("distancetotarget", -1)
-        end)) or -1
-        if vectorDistance >= 0 and vectorDistance < 0.001 then
-            return "zero-target-vector"
-        end
+    if isNativeCombatOrReactionState(candidateState) then
+        return "candidate-native-state:" .. candidateState
     end
     if distanceBetween(subject, candidate) < MIN_SAFE_TARGET_DISTANCE then
         return "close-overlap"
@@ -407,7 +411,6 @@ local function enterPursuit(record, reason, forceRefresh)
 
     local previousMode = record.controlMode
     record.controlMode = "pursuit"
-    record.reattachCountdown = 0
     if forceRefresh
         or previousMode ~= "pursuit"
         or candidateMovedFromPath(record)
@@ -444,13 +447,10 @@ end
 local function enterEngagement(record, areaReason)
     local subject = record.subject
     local candidate = record.candidate
-    local existing = currentTarget(subject)
-    if existing and existing ~= candidate then
-        if not isZombieTarget(existing) then
-            record.controlMode = "blocked-player-target"
-            return false
-        end
-        pcall(function() subject:setTarget(nil) end)
+    local cleared, clearReason = clearZombieTarget(subject)
+    if not cleared then
+        record.controlMode = "blocked-player-target"
+        return false
     end
 
     local cancelOk, cancelErr = cancelCoordinatePath(subject)
@@ -467,45 +467,31 @@ local function enterEngagement(record, areaReason)
         return false
     end
 
-    local setOk, setErr = pcall(function() subject:setTarget(candidate) end)
-    local retained = setOk and currentTarget(subject) == candidate
-    record.reattachCountdown = retained
-        and TARGET_REATTACH_BACKOFF_TICKS
-        or TARGET_REATTACH_FAILURE_BACKOFF_TICKS
-    if retained then
-        record.controlMode = "engagement"
-        local wasAttached = record.hadTarget == true
-        record.hadTarget = true
-        if not wasAttached then
-            record.engagements = (record.engagements or 0) + 1
-            CombatController.increment("engagements")
-            print(string.format(
-                "[ZombieFactions][%s][OWNER_PROBE] phase=melee-engagement subject=%d candidate=%d distance=%.2f area=%s pathCancelled=true retained=true state=%s engagement=%d",
-                record.runId,
-                record.subjectId,
-                record.candidateId,
-                distanceBetween(subject, candidate),
-                tostring(areaReason),
-                zombieState(subject),
-                record.engagements
-            ))
-        else
-            CombatController.increment("targetReattachments")
-        end
-        return true
+    if currentTarget(subject) ~= nil then
+        record.controlMode = nil
+        return false
     end
 
-    record.controlMode = nil
-    print(string.format(
-        "[ZombieFactions][%s][OWNER_PROBE] phase=melee-engagement-failed subject=%d candidate=%d distance=%.2f setTarget=%s error=%s",
-        record.runId,
-        record.subjectId,
-        record.candidateId,
-        distanceBetween(subject, candidate),
-        tostring(setOk),
-        tostring(setErr)
-    ))
-    return false
+    local wasEngaged = record.controlMode == "engagement"
+    record.controlMode = "engagement"
+    pcall(function() subject:faceThisObject(candidate) end)
+    if not wasEngaged then
+        record.engagements = (record.engagements or 0) + 1
+        CombatController.increment("engagements")
+        print(string.format(
+            "[ZombieFactions][%s][OWNER_PROBE] phase=melee-engagement subject=%d candidate=%d distance=%.2f area=%s pathCancelled=true nativeTargetClear=%s clearReason=%s state=%s engagement=%d",
+            record.runId,
+            record.subjectId,
+            record.candidateId,
+            distanceBetween(subject, candidate),
+            tostring(areaReason),
+            tostring(currentTarget(subject) == nil),
+            tostring(clearReason),
+            zombieState(subject),
+            record.engagements
+        ))
+    end
+    return true
 end
 
 local function requestReacquire(record)
@@ -583,11 +569,9 @@ local function beginOwnerProbe(record)
     record.lastSignature = nil
     record.aiProgressObserved = false
     record.movementObserved = false
-    record.hadTarget = false
     record.controlMode = nil
     record.pursuitCommands = 0
     record.engagements = 0
-    record.reattachCountdown = 0
     record.reacquireRequested = false
     record.meleeCommitted = false
     record.safetyReason = nil
@@ -752,42 +736,41 @@ local function updateTargetRecord(record, stepTicks)
         return
     end
 
-    local retained = currentTarget(zombie) == candidate
+    local existingTarget = currentTarget(zombie)
+    if existingTarget ~= nil then
+        if not isZombieTarget(existingTarget) then
+            record.controlMode = "blocked-player-target"
+            record.meleeCommitted = false
+            updateProgress(record, distance, stepTicks, false)
+            printSnapshot(record, "player-target-preserved", false)
+            return
+        end
+        local cleared = clearZombieTarget(zombie)
+        if not cleared then
+            record.controlMode = "native-target-clear-failed"
+            record.meleeCommitted = false
+            return
+        end
+        CombatController.increment("nativeZombieTargetsCleared")
+    end
+
     local areaClear = false
     local areaReason = "outside-melee-envelope"
 
-    if retained then
-        if distance <= DISENGAGEMENT_DISTANCE then
-            areaClear, areaReason = engagementAreaClear(record)
-        end
-        if distance <= DISENGAGEMENT_DISTANCE and areaClear then
-            record.controlMode = "engagement"
-            record.hadTarget = true
-        else
-            record.aiProgressObserved = false
-            record.movementObserved = false
-            record.initialDistance = distance
-            enterPursuit(record, "disengage:" .. tostring(areaReason), true)
-        end
-    elseif distance <= ENGAGEMENT_DISTANCE then
+    if distance <= ENGAGEMENT_DISTANCE then
         areaClear, areaReason = engagementAreaClear(record)
         if areaClear then
-            if record.reattachCountdown <= 0 then
-                enterEngagement(record, areaReason)
-            else
-                if record.controlMode ~= "engagement-backoff" then
-                    cancelCoordinatePath(zombie)
-                end
-                record.controlMode = "engagement-backoff"
-                CombatController.increment("reattachBackoffs")
-            end
+            enterEngagement(record, areaReason)
         else
             enterPursuit(record, "approach:" .. tostring(areaReason), false)
         end
     else
         enterPursuit(record, "approach:" .. tostring(areaReason), false)
     end
-    local meleeCommitted = distance <= MELEE_COMMITMENT_DISTANCE and areaClear
+    local meleeCommitted = distance <= MELEE_COMMITMENT_DISTANCE
+        and areaClear
+        and record.controlMode == "engagement"
+        and currentTarget(zombie) == nil
     if meleeCommitted then
         CombatController.authorizeMelee(record.subjectId, record.candidateId)
         if not record.meleeCommitted then
@@ -826,7 +809,6 @@ local function onControllerUpdate(stepTicks)
     for subjectId, record in pairs(tracked) do
         if not record.persistent then record.remaining = record.remaining - stepTicks end
         record.pathRefreshCountdown = math.max(0, record.pathRefreshCountdown - stepTicks)
-        record.reattachCountdown = math.max(0, (record.reattachCountdown or 0) - stepTicks)
 
         local player = getPlayer()
         local localUsername = player and player:getUsername() or "none"

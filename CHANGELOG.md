@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.32 — 2026-08-30
+
+Native-target crash containment and synchronized reaction probe for reopened [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).
+
+- removes the melee-range `setTarget(IsoZombie)` transition and requires the attacker native target to remain clear while coordinate pursuit, facing, bumped-state presentation, collision requests, and server damage validation remain separate;
+- suppresses faction bite presentation during native attack, lunge, reaction, stagger, fall, knockdown, death, traversal, or crawler states;
+- adds a target-owner cosmetic reaction using a mod-owned `bumped` node mapped to the shipped `Zombie_ShotShoulder_L` clip after a successfully applied server-dispatched nonlethal hit;
+- adds bounded cleanup and `nativeZombieTargetsCleared` / `hitReactions*` diagnostics for the new safety invariants;
+- records the v0.0.31 `AttackState.triggerPlayerReaction` `IsoZombie`-to-`IsoPlayer` crash and reopens SPIKE-003 validation;
+- normalizes documentation around explicit ownership for requirements, architecture, roadmap, testing, validation history, ADRs, and SPIKE evidence.
+
 ## 0.0.31 — 2026-08-30
 
 Standing bite-sequence correction for [#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3).

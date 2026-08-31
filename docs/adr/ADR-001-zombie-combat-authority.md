@@ -27,8 +27,8 @@ Do not use player hit packets for faction zombies, represent faction zombies as 
 
 This model works with vanilla `IsoZombie` objects and the available Lua/API surface; no deeper engine hook is required for the validated diagnostic mechanics. It preserves server authority over policy and outcomes while respecting Build 42 zombie ownership.
 
-The tradeoff is a custom synchronization protocol and additional validation traffic. Ownership transfer, save/restart persistence, automatic enrollment, multi-member mob scaling, and visual attack presentation require separate production hardening. Impact timing should also be refined to reduce requests rejected after the pair has moved outside the server distance envelope.
+The tradeoff is a custom synchronization protocol and additional validation traffic. Ownership transfer, save/restart persistence, automatic enrollment, and multi-member mob scaling require separate production hardening. SPIKE-003 showed that attaching an `IsoZombie` as a native target can enter player-oriented `AttackState` and crash during a reaction event. Presentation must therefore remain cosmetic and keep the attacker's native target clear; v0.0.32 awaits validation of that correction.
 
 ## Evidence
 
-[`SPIKE-001-zombie-targeting-and-combat-feasibility.md`](SPIKE-001-zombie-targeting-and-combat-feasibility.md) records the controlled experiments through v0.0.24 and the final dedicated-server crowd result.
+[`../spikes/SPIKE-001-zombie-targeting-and-combat-feasibility.md`](../spikes/SPIKE-001-zombie-targeting-and-combat-feasibility.md) records the controlled experiments through v0.0.24 and the final dedicated-server crowd result. [`../spikes/SPIKE-003-synchronized-combat-presentation.md`](../spikes/SPIKE-003-synchronized-combat-presentation.md) records the later standing-presentation validation.

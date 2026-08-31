@@ -15,7 +15,7 @@ Last reviewed: **2026-08-26**
 - The project must not imply official status or endorsement by The Indie Stone.
 - Do not add paid/donor-exclusive functionality, malicious behavior, piracy/licensing circumvention, or unauthorized modpack redistribution.
 
-If third-party code/assets are ever introduced, their source, author, license/permission, modifications, redistribution terms, and required attribution must be documented before distribution. A dedicated third-party notice file should be added when there is actually something to disclose.
+If third-party code/assets are ever introduced, their source, author, license/permission, modifications, redistribution terms, and required attribution must be documented before distribution in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and, for assets, [`ASSET_LICENSE.md`](ASSET_LICENSE.md).
 
 ## Distribution boundary
 
@@ -38,7 +38,7 @@ Before a public GitHub or Steam Workshop release:
 - validate only the runtime capabilities actually claimed;
 - confirm default installation preserves vanilla zombie behavior;
 - test multiplayer authority/save-load behavior for the claimed feature set;
-- do not claim zombie-vs-zombie combat until acquisition, pursuit, attack, damage, death, and synchronization are demonstrated;
+- validate acquisition, pursuit, attack presentation, damage, death, and synchronization for every zombie-vs-zombie capability claimed;
 - confirm normal operation produces no runaway target churn, world scans, command spam, or diagnostic log spam;
 - keep compatibility claims limited to tested Build 42 evidence.
 

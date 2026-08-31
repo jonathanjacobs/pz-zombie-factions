@@ -1,53 +1,33 @@
 # Zombie Factions
 
-**A Project Zomboid Build 42 framework for assigning zombies to factions and defining directional Friendly, Neutral, and Hostile relationships between zombie factions and player factions.**
+A Project Zomboid Build 42 framework for zombie-faction identity and directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationships.
 
 - Status: **Research / Pre-Alpha**
-- Current version: **v0.0.24**
+- Current version: **v0.0.32**
 - Target baseline: **Project Zomboid Build 42.20.x**
-
-## Project scope
-
-The first milestone is intentionally narrow:
-
-- every zombie resolves to exactly one zombie faction;
-- unassigned zombies belong to the built-in `Vanilla` faction;
-- additional zombie factions can be registered;
-- relationships are directional and use `FRIENDLY`, `NEUTRAL`, or `HOSTILE`;
-- relationships can target zombie factions, Project Zomboid player factions, or unfactioned players;
-- default installation preserves vanilla zombie behavior.
 
 ## Current state
 
-SPIKE-001 successfully established that Build 42 multiplayer can support faction-aware zombie pursuit, synchronized damage, and death. The accepted design keeps faction policy and combat validation on the server while the current zombie owner performs bounded pursuit and applies server-authorized nonlethal damage. The server verifies that result and finalizes lethal death through the normal corpse lifecycle.
+SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 remains active: v0.0.31 demonstrated readable standing bites but later crashed when native `AttackState` received an `IsoZombie` target. Version 0.0.32 removes that native target coupling and adds a cosmetic defender reaction for controlled retesting.
 
-Version 0.0.24 remains a diagnostic implementation, not production-ready autonomous targeting. Its admin Horde Spawning extension provides `zf:test-red` and `zf:test-blue`, directional relationship controls to `zf:vanilla`, and an opt-in SPIKE combat harness. The diagnostic spawn path requires the same `CreateHorde` capability as vanilla Horde Spawning; ordinary Vanilla spawning remains unchanged when the SPIKE option is disabled.
+The current implementation remains diagnostic tooling. The administrator Horde Spawning extension creates selected test factions and an opt-in SPIKE harness; ordinary vanilla spawning remains unchanged when it is disabled. Production enrollment, persistence, and relationship behavior outside the harness remain planned work.
 
-The Sandbox Admin option **Zombie Mob Size** controls diagnostic mob membership. `1` preserves individual acquisition, values above `1` enable leader/follower mobs up to that size, and `0` removes the membership cap.
+## Scope and current limits
 
-## Known limitations
+- Zombies resolve to one zombie faction; `zf:vanilla` is the default.
+- Relationships are directional and use `FRIENDLY`, `NEUTRAL`, or `HOSTILE`.
+- Default installation preserves normal vanilla behavior.
+- Standing faction bites and defender reactions are active test candidates; crawlers, sounds, and stale air-bite cancellation are not yet accepted behavior.
+- Only explicitly enrolled diagnostic zombies participate today.
 
-- Only zombies explicitly enrolled through the admin diagnostic harness participate.
-- Zombie ownership transfer and save/restart persistence still require production validation.
-- Multi-member and unlimited mob scaling remain follow-on performance work.
-- The validated timed damage cycle does not yet provide a proper zombie-on-zombie attack animation.
-- The diagnostic harness is research instrumentation and is not a release-ready gameplay system.
+## Documentation
 
-## Project documentation
+[`docs/DOCUMENTATION_OWNERSHIP.md`](docs/DOCUMENTATION_OWNERSHIP.md) is the authoritative map. Start with:
 
-- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — normative runtime requirements.
-- [`docs/DESIGN.md`](docs/DESIGN.md) — implementation strategy and development sequence.
-- [`docs/SPIKE-001-zombie-targeting-and-combat-feasibility.md`](docs/SPIKE-001-zombie-targeting-and-combat-feasibility.md) — complete Build 42 experiment history, evidence, and closeout.
-- [`docs/ADR-001-zombie-combat-authority.md`](docs/ADR-001-zombie-combat-authority.md) — accepted multiplayer targeting and damage authority model.
-- [`COMPLIANCE.md`](COMPLIANCE.md) — Project Zomboid policy, provenance, and release constraints.
-- [`CHANGELOG.md`](CHANGELOG.md) — version history.
+- [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) — normative behavior.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current implementation and multiplayer authority model.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — open work and productionization path.
+- [`docs/VALIDATION_HISTORY.md`](docs/VALIDATION_HISTORY.md) — observed test outcomes.
+- [`docs/spikes/`](docs/spikes/) and [`docs/adr/`](docs/adr/) — experimental evidence and durable decisions.
 
-## Runtime layout
-
-```text
-Contents/mods/pz-zombie-factions/
-```
-
-Original project source is licensed under Apache License 2.0. Project Zomboid code and assets remain property of The Indie Stone and are not redistributed or relicensed by this repository.
-
-Zombie Factions is an unofficial independent community mod and is not developed by, affiliated with, sponsored by, endorsed by, or otherwise official to The Indie Stone.
+Original project source is licensed under Apache-2.0. Project Zomboid assets and code are not redistributed or relicensed by this repository. Zombie Factions is an unofficial independent community mod.

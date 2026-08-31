@@ -18,14 +18,17 @@ local PROCESSED_OWNER_HIT_LIMIT = 256
 local MIN_SAFE_TARGET_DISTANCE = 0.10
 local BITE_BUMP_TYPE = "Bite"
 local BITE_ARM_TICKS = 120
+local HIT_REACTION_BUMP_TYPE = "ZombieFactionsHit"
+local HIT_REACTION_TICKS = 90
 
 local pending = {}
 local tracked = {}
 local pendingOwnerHits = {}
 local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
+local activeHitReactions = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.31")
+print("[ZombieFactions] Client impact probe loaded v0.0.32")
 
 local function print(message)
     CombatController.detail(message)
@@ -80,9 +83,31 @@ local function isTraversalState(state)
         or string.find(state, "vault", 1, true) ~= nil
 end
 
+local function isNativeCombatOrReactionState(state)
+    state = string.lower(tostring(state or ""))
+    return string.find(state, "attack", 1, true) ~= nil
+        or string.find(state, "lunge", 1, true) ~= nil
+        or string.find(state, "hitreaction", 1, true) ~= nil
+        or string.find(state, "stagger", 1, true) ~= nil
+        or string.find(state, "fall", 1, true) ~= nil
+        or string.find(state, "knock", 1, true) ~= nil
+        or string.find(state, "death", 1, true) ~= nil
+end
+
+local function currentTarget(zombie)
+    return safeCall(nil, function() return zombie:getTarget() end)
+end
+
+local function isZombieTarget(target)
+    if not target then return false end
+    return safeCall(false, function() return target:isZombie() end) == true
+end
+
 local function isUnsafeCombatPair(subject, candidate)
     return isTraversalState(zombieState(subject))
         or isTraversalState(zombieState(candidate))
+        or isNativeCombatOrReactionState(zombieState(subject))
+        or isNativeCombatOrReactionState(zombieState(candidate))
         or distance(subject, candidate) < MIN_SAFE_TARGET_DISTANCE
 end
 
@@ -175,6 +200,54 @@ local function sendOwnerHitAck(record, ok, message, beforeHealth, afterHealth, c
     ))
 end
 
+local function clearOwnerHitReaction(record)
+    local zombie = record and record.zombie
+    if not zombie then return end
+    local bumpType = tostring(safeCall("", function() return zombie:getBumpType() end))
+    if bumpType ~= HIT_REACTION_BUMP_TYPE then return end
+    safeCall(false, function()
+        zombie:setVariable("BumpAnimFinished", true)
+        zombie:setBumpDone(true)
+        zombie:setBumpType("")
+        return true
+    end)
+end
+
+local function playOwnerHitReaction(candidate)
+    if not candidate or isDead(candidate) or isCrawler(candidate)
+        or isTraversalState(zombieState(candidate))
+        or isNativeCombatOrReactionState(zombieState(candidate))
+    then
+        CombatController.increment("hitReactionsSuppressed")
+        return false
+    end
+
+    local candidateId = onlineId(candidate)
+    local bumpType = tostring(safeCall("", function() return candidate:getBumpType() end))
+    if bumpType ~= "" then
+        CombatController.increment("hitReactionsSuppressed")
+        return false
+    end
+
+    local armed = safeCall(false, function()
+        candidate:setVariable("BumpAnimFinished", false)
+        candidate:setBumpDone(false)
+        candidate:setBumpType(HIT_REACTION_BUMP_TYPE)
+        return true
+    end) == true
+    if not armed then
+        CombatController.increment("hitReactionsSuppressed")
+        return false
+    end
+
+    activeHitReactions[candidateId] = {
+        zombie = candidate,
+        remaining = HIT_REACTION_TICKS,
+    }
+    CombatController.increment("hitReactionsArmed")
+    return true
+end
+
 local function applyOwnerHit(record)
     local cached = processedOwnerHits[record.hitId]
     if cached then
@@ -219,6 +292,7 @@ local function applyOwnerHit(record)
         return true
     end
 
+    if not dead then playOwnerHitReaction(candidate) end
     sendOwnerHitAck(record, true, "owner applied faction damage", beforeHealth, afterHealth, dead)
     return true
 end
@@ -313,6 +387,14 @@ end
 
 local function armFactionBite(record)
     if record.bumpTicks and record.bumpTicks > 0 then return end
+    if currentTarget(record.subject) ~= nil
+        or isUnsafeCombatPair(record.subject, record.candidate)
+        or isCrawler(record.subject)
+        or isCrawler(record.candidate)
+    then
+        CombatController.increment("biteBumpsSuppressed")
+        return
+    end
     local armed = safeCall(false, function()
         record.subject:faceThisObject(record.candidate)
         record.subject:setVariable("BumpAnimFinished", false)
@@ -337,14 +419,23 @@ local function updateImpactRecord(record, stepTicks)
         CombatController.increment("impactNoAuthorization")
         return
     end
-    local exactTarget = safeCall(nil, function()
-        return record.subject:getTarget()
-    end) == record.candidate
-    if exactTarget then
-        CombatController.increment("impactExactTarget")
-    else
-        CombatController.increment("impactAuthorizedWithoutExact")
+    local nativeTarget = currentTarget(record.subject)
+    if nativeTarget ~= nil then
+        if nativeTarget == record.candidate then
+            CombatController.increment("impactExactTarget")
+        end
+        if isZombieTarget(nativeTarget) then
+            safeCall(false, function()
+                record.subject:setTarget(nil)
+                return true
+            end)
+        end
+        clearExpiredFactionBite(record)
+        CombatController.increment("impactSuppressed")
+        CombatController.increment("impactUnsafe")
+        return
     end
+    CombatController.increment("impactAuthorizedWithoutExact")
     if dist > MAX_DISTANCE then
         clearExpiredFactionBite(record)
         CombatController.increment("impactSuppressed")
@@ -422,6 +513,18 @@ local function onCharacterCollide(first, second)
 end
 
 local function onControllerUpdate(stepTicks)
+    for candidateId, reaction in pairs(activeHitReactions) do
+        reaction.remaining = reaction.remaining - stepTicks
+        local bumpType = tostring(safeCall("", function() return reaction.zombie:getBumpType() end))
+        if bumpType ~= HIT_REACTION_BUMP_TYPE then
+            activeHitReactions[candidateId] = nil
+        elseif reaction.remaining <= 0 or isDead(reaction.zombie) then
+            clearOwnerHitReaction(reaction)
+            activeHitReactions[candidateId] = nil
+            CombatController.increment("hitReactionsExpired")
+        end
+    end
+
     for i = #pendingOwnerHits, 1, -1 do
         local record = pendingOwnerHits[i]
         record.ticks = record.ticks - stepTicks

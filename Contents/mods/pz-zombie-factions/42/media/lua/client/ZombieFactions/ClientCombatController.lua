@@ -124,7 +124,7 @@ local function printSummary()
     end
 
     print(string.format(
-        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d crawlerBitesDeferred=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",
+        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d nativeZombieTargetsCleared=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d crawlerBitesDeferred=%d hitReactionsArmed=%d hitReactionsSuppressed=%d hitReactionsExpired=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",
         trackedTargets,
         trackedImpacts,
         metric("controllerPasses"),
@@ -134,6 +134,7 @@ local function printSummary()
         metric("meleeCommitments"),
         metric("targetReattachments"),
         metric("reattachBackoffs"),
+        metric("nativeZombieTargetsCleared"),
         metric("stuckReacquires"),
         metric("obstacleChecks"),
         metric("obstacleCacheHits"),
@@ -142,6 +143,9 @@ local function printSummary()
         metric("biteBumpsExpired"),
         metric("biteCollisions"),
         metric("crawlerBitesDeferred"),
+        metric("hitReactionsArmed"),
+        metric("hitReactionsSuppressed"),
+        metric("hitReactionsExpired"),
         metric("presentationCues"),
         metric("presentationStarts"),
         metric("presentationSuppressed"),

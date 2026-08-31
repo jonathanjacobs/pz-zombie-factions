@@ -479,4 +479,4 @@ Friendly and Neutral controls must then show that the same nearby candidate is n
 
 ## Deliverable
 
-The target/AI/combat boundaries, viable Lua hook surface, multiplayer authority model, damage/death synchronization route, and performance implications are recorded above. The accepted architectural decision is documented in [`ADR-001-zombie-combat-authority.md`](ADR-001-zombie-combat-authority.md).
+The target/AI/combat boundaries, viable Lua hook surface, multiplayer authority model, damage/death synchronization route, and performance implications are recorded above. The accepted architectural decision is documented in [`ADR-001-zombie-combat-authority.md`](../adr/ADR-001-zombie-combat-authority.md).
