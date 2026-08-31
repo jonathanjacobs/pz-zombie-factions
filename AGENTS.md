@@ -2,15 +2,15 @@
 
 ## Privacy boundary
 
-- Do not copy private conversation content, attachments, logs, personal context, or private game/server data into this repository unless explicitly authorized.
+- Do not copy private assistant conversation content, titles, summaries, prompts, attachments, project metadata, inferred personal context, logs, or private game/server data into this repository unless explicitly authorized.
 - Translate approved work into impersonal, repository-native technical language.
-- Apply this rule to source, documentation, comments, commits, issues, and generated artifacts.
+- Apply this rule to source, documentation, comments, commits, issues, pull requests, fixtures, and generated artifacts.
 
 ## Start every task here
 
 1. Run `git status --short --branch` and preserve unrelated changes.
 2. Read [`docs/DOCUMENTATION_OWNERSHIP.md`](docs/DOCUMENTATION_OWNERSHIP.md) before changing documentation.
-3. Use the canonical document for the subject: requirements, architecture/ADRs, roadmap, testing, validation history, or spikes.
+3. Use the canonical document for the subject: requirements, architecture/ADRs, roadmap, testing, validation history, spikes, or policy/provenance.
 4. Treat reproducible tests and Project Zomboid logs as stronger evidence than remembered API behavior.
 
 ## Project facts
@@ -27,6 +27,7 @@
 - Keep the deployable package under `Contents/mods/pz-zombie-factions/`.
 - Preserve server authority for shared faction policy, target grants, damage validation, and lethal outcomes.
 - Do not copy or redistribute Project Zomboid assets, decompiled code, or third-party mod material without documented rights.
+- Follow [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md) for engineering and release controls.
 - Keep diagnostics bounded and evidence-focused; do not claim release readiness, compatibility, or performance beyond recorded validation.
 
 ## Verification expectations

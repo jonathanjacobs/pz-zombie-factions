@@ -1,5 +1,9 @@
 # Local Project Zomboid data / logs
+Zomboid/
 Logs/
+Saves/
+Server/
+Workshop/
 *.log
 *.zip
 *.bak
@@ -8,15 +12,21 @@ Logs/
 # Editors / OS
 .vscode/
 .idea/
+*.code-workspace
 .DS_Store
 Thumbs.db
 
-# Decompiled/research source must never be committed
+# Private configuration and game-derived research material
+.env
+.env.*
+!*.env.example
 /zombie/
 decompiled/
+extracted-game-assets/
 research-source/
 
 # Workshop/local packaging scratch
 workshop-staging/
 build/
 dist/
+exports/

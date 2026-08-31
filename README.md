@@ -29,5 +29,6 @@ The current implementation remains diagnostic tooling. The administrator Horde S
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — open work and productionization path.
 - [`docs/VALIDATION_HISTORY.md`](docs/VALIDATION_HISTORY.md) — observed test outcomes.
 - [`docs/spikes/`](docs/spikes/) and [`docs/adr/`](docs/adr/) — experimental evidence and durable decisions.
+- [`COMPLIANCE.md`](COMPLIANCE.md) and [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md) — policy, provenance, and release controls.
 
 Original project source is licensed under Apache-2.0. Project Zomboid assets and code are not redistributed or relicensed by this repository. Zombie Factions is an unofficial independent community mod.

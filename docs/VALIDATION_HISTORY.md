@@ -2,6 +2,8 @@
 
 This is a concise record of observed outcomes. Detailed hypotheses, raw diagnostic interpretation, and rejected approaches remain in the linked SPIKE records.
 
+Unless an entry says otherwise, the recorded environment is Project Zomboid Build 42.20.x on a dedicated server with one connected test client.
+
 | Date | Version | Scope | Outcome | Evidence |
 | --- | --- | --- | --- | --- |
 | 2026-08-30 | 0.0.24 | Dedicated-server crowd combat | Passed the SPIKE-001 feasibility closeout: synchronized pursuit, validated damage, and lethal corpse handling worked without a reported Zombie Factions exception in the recorded run. | [SPIKE-001](spikes/SPIKE-001-zombie-targeting-and-combat-feasibility.md) |

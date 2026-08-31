@@ -11,7 +11,7 @@ This file assigns mutable project facts to one canonical source so the repositor
 | Repeatable test procedure | [`TESTING.md`](TESTING.md) |
 | Observed validation outcomes | [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md) |
 | Bounded experimental evidence | [`spikes/`](spikes/) |
-| Policy and provenance | [`../COMPLIANCE.md`](../COMPLIANCE.md), [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), [`../ASSET_LICENSE.md`](../ASSET_LICENSE.md) |
+| Policy and provenance | [`PZ_MODDING_POLICY.md`](PZ_MODDING_POLICY.md), [`../COMPLIANCE.md`](../COMPLIANCE.md), [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), [`../ASSET_LICENSE.md`](../ASSET_LICENSE.md) |
 
 ## Duplication rule
 
