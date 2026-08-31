@@ -21,7 +21,7 @@ Use a dedicated Build 42.20.x server and at least one client. Capture clean clie
 - Use v0.0.34 as the accepted dedicated-server, one-client standing baseline. Regression runs should require nonzero `biteCollisions`, `impactRequests`, `biteSoundsPlayed`, `hitReactionsArmed`, and accepted server damage before adding more zombies, while retaining `impactExactTarget=0` and no `AttackState.triggerPlayerReaction` exception.
 - Retain the Issue #5 regression check: open Horde Spawning, select a faction test spawn, click Spawn once, and require exactly one client success plus one server spawn request. Repeat after changing count and faction without closing the window.
 - Test two-client attacker/defender ownership separation and mixed crawler crowds as follow-up scopes; neither is established by the accepted v0.0.34 run.
-- Test Issue #4 with moving, dying, and retargeted defenders; distinguish a clean cancellation from a normal completed bite.
+- Retain a standing-bite coherence regression check with moving, dying, and retargeted defenders; flag any bite completed at a departed target without adding timer-only damage.
 - Treat crawling zombies as deferred from the standing-only bite path unless a dedicated validation case changes that status.
 - Test player behavior separately whenever faction-combat code changes.
 
