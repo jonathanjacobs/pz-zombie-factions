@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.0.37 — 2026-08-31
+
+Unvalidated seated-defender extension for the next dedicated-server runtime test.
+
+- treats a zombie whose shipped `isSitAgainstWall()` posture is active as a low defender, routing a standing attacker through the existing `STANDING_STOMP` animation-window profile instead of the standing bite collision route;
+- after accepted nonlethal damage, sends the server-validated attacker coordinates to the target owner and invokes the shipped `setTurnAlertedValues()` route there so the sitting action group can use its native `getup-fromSitting` transition without broadcasting a world sound or requiring the attacker to resolve on that client;
+- locks the exact attacker-defender pair after a sitting stomp, allowing the current stomp to finish but suppressing another stomp or bite until the defender has left sitting/get-up state and remained stably standing for half a second; the bounded three-second lock expires so a failed wake can be stomped again;
+- adds bounded counters for seated stomp arming, seated stomp impacts, get-up alerts, successful standing transitions, and get-up timeouts;
+- preserves crawler-first profile selection, server recomputation of the defender posture, and all existing damage-authority checks;
+- adds a focused standing-versus-sitting damage and get-up regression procedure.
+
+## 0.0.36 — 2026-08-31
+
+Crawler-combat implementation for dedicated-server runtime testing.
+
+- adds `CRAWLER_LUNGE` and `STANDING_STOMP` attack profiles while retaining the validated collision-driven `STANDING_BITE` profile;
+- reuses shipped `Zombie_CrawlLunge`, `Bob_AttackFloorStamp`, and `Bob_BiteCrawlerReact` clips through mod-owned animation nodes without assigning a zombie as a native target;
+- lets crawler lunges and standing stomps request damage only from their animation contact window while the exact pair remains owner-controlled, authorized, same-level, and inside the client distance gate;
+- makes the server independently derive the expected posture profile and evidence type before retaining all existing policy, ownership, cooldown, liveness, distance, target-owner, and lethal checks;
+- adds crawler floor reactions, low standing reactions, stomp sound selection, and profile-specific bounded diagnostics;
+- defines runtime cases for crawler-versus-crawler, crawler-versus-standing, standing-versus-crawler, player regression, and standing-combat regression.
+
 ## 0.0.35 — 2026-08-30
 
 Distance-envelope tuning harness for [#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1).

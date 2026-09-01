@@ -17,6 +17,9 @@ local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
 local FRIENDLY = ZombieFactions.Relationship.FRIENDLY
 local NEUTRAL = ZombieFactions.Relationship.NEUTRAL
 local HOSTILE = ZombieFactions.Relationship.HOSTILE
+local PROFILE_STANDING_BITE = "STANDING_BITE"
+local PROFILE_CRAWLER_LUNGE = "CRAWLER_LUNGE"
+local PROFILE_STANDING_STOMP = "STANDING_STOMP"
 
 local VALIDATION_DELAY_TICKS = 30
 local VALIDATION_SAMPLE_LIMIT = 10
@@ -78,7 +81,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.35 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.37 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -127,7 +130,7 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -156,6 +159,7 @@ local function printPerformanceSummary()
         performanceValue("damageRejected"),
         performanceValue("damageDistanceRejected"),
         performanceValue("damageConfigMismatch"),
+        performanceValue("damageProfileRejected"),
         performanceValue("damageAccepted"),
         performanceAverage("damageDispatchedServerDistanceTotal", "damageDispatchedDistanceSamples"),
         performanceAverage("damageDispatchedClientDistanceTotal", "damageDispatchedClientDistanceSamples"),
@@ -295,6 +299,29 @@ end
 local function sameLevel(a, b)
     if not a or not b then return false end
     return math.floor(a:getZ()) == math.floor(b:getZ())
+end
+
+local function isCrawler(zombie)
+    if not zombie or zombie.isCrawling == nil then return false end
+    local ok, crawling = pcall(function() return zombie:isCrawling() end)
+    return ok and crawling == true
+end
+
+local function isSitting(zombie)
+    if not zombie or zombie.isSitAgainstWall == nil then return false end
+    local ok, sitting = pcall(function() return zombie:isSitAgainstWall() end)
+    return ok and sitting == true
+end
+
+local function expectedAttackProfile(subject, candidate)
+    if isCrawler(subject) then return PROFILE_CRAWLER_LUNGE end
+    if isCrawler(candidate) or isSitting(candidate) then return PROFILE_STANDING_STOMP end
+    return PROFILE_STANDING_BITE
+end
+
+local function expectedImpactEvidence(profile)
+    if profile == PROFILE_STANDING_BITE then return "character-collision" end
+    return "animation-window"
 end
 
 local function currentTarget(zombie)
@@ -1510,6 +1537,26 @@ local function handleDamageProbe(player, args)
         return
     end
 
+    local profile = expectedAttackProfile(record.subject, record.candidate)
+    local reportedProfile = tostring(args.attackProfile or "")
+    local impactEvidence = tostring(args.impactEvidence or "")
+    if reportedProfile ~= profile or impactEvidence ~= expectedImpactEvidence(profile) then
+        countPerformance("damageRejected")
+        countPerformance("damageProfileRejected")
+        print(string.format(
+            "[ZombieFactions][%s][DAMAGE_PROBE] rejected reason=attack-profile expectedProfile=%s reportedProfile=%s expectedEvidence=%s reportedEvidence=%s subjectCrawler=%s candidateCrawler=%s candidateSitting=%s",
+            runId,
+            profile,
+            reportedProfile,
+            expectedImpactEvidence(profile),
+            impactEvidence,
+            tostring(isCrawler(record.subject)),
+            tostring(isCrawler(record.candidate)),
+            tostring(isSitting(record.candidate))
+        ))
+        return
+    end
+
     if not sameLevel(record.subject, record.candidate) then
         countPerformance("damageRejected")
         print(string.format(
@@ -1522,7 +1569,8 @@ local function handleDamageProbe(player, args)
     end
 
     local distance = math.sqrt(distanceSquared(record.subject, record.candidate))
-    local clientDistanceAtCollision = tonumber(args.clientDistanceAtCollision)
+    local clientDistanceAtCollision = tonumber(args.clientDistanceAtImpact)
+        or tonumber(args.clientDistanceAtCollision)
     local clientCollisionDistance = tonumber(args.clientCollisionDistance)
     local effectiveClientCollisionDistance = record.clientCollisionDistance
         or configuredClientCollisionDistance()
@@ -1577,6 +1625,7 @@ local function handleDamageProbe(player, args)
         ownerAtDispatch = targetOwner,
         serverBeforeHealth = beforeHealth,
         amount = DAMAGE_PROBE_AMOUNT,
+        attackProfile = profile,
         remaining = DAMAGE_PROBE_ACK_TIMEOUT_TICKS,
     }
     record.damageCooldown = DAMAGE_PROBE_COOLDOWN_TICKS
@@ -1589,11 +1638,13 @@ local function handleDamageProbe(player, args)
     end
 
     print(string.format(
-        "[ZombieFactions][%s][DAMAGE_PROBE] phase=dispatch hitId=%s subject=%d candidate=%d targetOwner=%s serverDistance=%.2f clientDistanceAtCollision=%s clientCollisionDistance=%.2f serverValidationDistance=%.2f amount=%.3f serverBeforeHealth=%.3f",
+        "[ZombieFactions][%s][DAMAGE_PROBE] phase=dispatch hitId=%s subject=%d candidate=%d attackProfile=%s impactEvidence=%s targetOwner=%s serverDistance=%.2f clientDistanceAtImpact=%s clientCollisionDistance=%.2f serverValidationDistance=%.2f amount=%.3f serverBeforeHealth=%.3f",
         runId,
         hitId,
         record.subjectId,
         record.candidateId,
+        profile,
+        impactEvidence,
         targetOwner,
         distance,
         tostring(clientDistanceAtCollision),
@@ -1611,6 +1662,9 @@ local function handleDamageProbe(player, args)
         subjectId = record.subjectId,
         candidateId = record.candidateId,
         amount = DAMAGE_PROBE_AMOUNT,
+        attackProfile = profile,
+        alertX = math.floor(record.subject:getX()),
+        alertY = math.floor(record.subject:getY()),
     })
 end
 

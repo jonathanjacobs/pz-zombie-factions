@@ -3,5 +3,5 @@ name=Zombie Factions
 description=Pre-alpha Build 42 zombie-faction framework with bounded, time-sliced owner combat probes.
 author=Jonathan Jacobs
 category=features
-modversion=0.0.35
+modversion=0.0.37
 versionMin=42.20.0

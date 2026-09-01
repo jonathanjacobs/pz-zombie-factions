@@ -3,12 +3,12 @@
 A Project Zomboid Build 42 framework for zombie-faction identity and directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationships.
 
 - Status: **Research / Pre-Alpha**
-- Current version: **v0.0.35**
+- Current version: **v0.0.37**
 - Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Current state
 
-SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 closed successfully for the dedicated-server, one-client standing-zombie scope: v0.0.34 produced isolated-pair contact, audible bites, validated damage, defender reactions, and no repeat of the native-target crash. Version 0.0.35 adds bounded, logged distance-envelope controls for Issue #1 testing; it does not change the accepted v0.0.34 defaults without administrator configuration.
+SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 closed successfully for the dedicated-server, one-client standing-zombie scope. A v0.0.36 mixed-crowd run exercised crawler lunges, standing stomps, and standing bites with accepted server damage and no profile mismatch or Zombie Factions exception. Version 0.0.37 adds an unvalidated seated-defender rule: standing attackers stomp sitting zombies, which then use the shipped get-up transition after accepted nonlethal damage.
 
 The current implementation remains diagnostic tooling. The administrator Horde Spawning extension creates selected test factions and an opt-in SPIKE harness; ordinary vanilla spawning remains unchanged when it is disabled. Production enrollment, persistence, and relationship behavior outside the harness remain planned work.
 
@@ -17,7 +17,7 @@ The current implementation remains diagnostic tooling. The administrator Horde S
 - Zombies resolve to one zombie faction; `zf:vanilla` is the default.
 - Relationships are directional and use `FRIENDLY`, `NEUTRAL`, or `HOSTILE`.
 - Default installation preserves normal vanilla behavior.
-- Standing faction bites, sounds, and defender reactions are validated diagnostic behavior for the current dedicated-server, one-client scope; two-client ownership, crawlers, and stale air-bite cancellation remain follow-up work.
+- Standing bites and the v0.0.36 mixed-crowd crawler/stomp route have dedicated-server, one-client runtime evidence. The v0.0.37 seated-stomp/get-up extension is implemented but unvalidated; two-client ownership also remains follow-up work.
 - Only explicitly enrolled diagnostic zombies participate today.
 
 ## Documentation

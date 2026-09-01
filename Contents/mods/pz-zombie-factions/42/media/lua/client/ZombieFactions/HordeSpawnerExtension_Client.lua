@@ -10,7 +10,7 @@ local REL = ZombieFactions.Relationship
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.35")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.37")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animNode>
+    <m_Name>zombiefactionsCrawlerBiteReaction</m_Name>
+    <m_AnimName>Bob_BiteCrawlerReact</m_AnimName>
+    <m_Looped>false</m_Looped>
+    <m_BlendTime>0.10</m_BlendTime>
+    <m_BlendOutTime>0.20</m_BlendOutTime>
+    <m_SpeedScale>0.96</m_SpeedScale>
+    <m_SyncTrackingEnabled>false</m_SyncTrackingEnabled>
+    <m_Conditions x_name="13797a6a-3895-4f04-959c-323a8aef3301">
+        <m_Name>BumpType</m_Name>
+        <m_Type>STRING</m_Type>
+        <m_Value>ZombieFactionsCrawlerBiteReact</m_Value>
+    </m_Conditions>
+    <m_Events x_name="13797a6a-3895-4f04-959c-323a8aef3302">
+        <m_EventName>SetVariable</m_EventName>
+        <m_Time>End</m_Time>
+        <m_ParameterValue>BumpAnimFinished=true</m_ParameterValue>
+    </m_Events>
+</animNode>
