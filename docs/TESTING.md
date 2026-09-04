@@ -7,6 +7,53 @@ Target: Project Zomboid Build 42.20.x
 
 Use a dedicated Build 42.20.x server and at least one client. Capture clean client and server logs for each focused test. Do not treat an administrator's visual impression alone as sufficient evidence for multiplayer authority or damage behavior.
 
+## Diagnostic verbosity
+
+Two independent facilities produce evidence. Enable the mod's own diagnostics first; it is the only source that reports faction mob membership, target grants, and damage-probe decisions.
+
+### Mod diagnostics
+
+Per-event mod logging is suppressed by default, leaving only the periodic `[ZombieFactions][PERF]` and `[ZombieFactions][SERVER_PERF]` summaries. To capture per-event `ACQUISITION_PROBE`, `OWNER_PROBE`, `MOB`, `FACTION_IMPACT`, and `DAMAGE_PROBE` lines:
+
+- Server: set `SERVER_VERBOSE_DIAGNOSTICS = true` in `TestHarness_Server.lua`.
+- Client: set `verbose = true` in the `ClientCombatController.lua` controller table.
+
+Both default to `false` and neither has an in-game toggle. Redeploy to the local and server mod folders and restart both sides. Return both to `false` before any crowd run or release build; per-event output is unbounded and will bury the summaries it exists to explain.
+
+### Game logging
+
+Build 42.20 reads per-category log severities from a profile file and hot-reloads it through a file watcher while the game runs:
+
+- Client: `<cachedir>/debuglog.cfg`
+- Server: `<cachedir>/debuglog-server.cfg`
+
+`-all` clears, `+<DebugType> <LogSeverity>` enables, and a leading `=` selects the active profile:
+
+```
+factions
+{
+-all
++Multiplayer Debug
+}
+=factions
+```
+
+Categories are the `DebugType` enum values (`Zombie`, `Combat`, `Multiplayer`, `Network`, `Packet`, `Damage`, `Death`, `Lua`, `Mod`, `ActionSystem`, and others). Severities are `Trace`, `Noise`, `Debug`, `General`, `Warning`, `Error`, and `Off`. The paths and format above are read from the Build 42.20 engine and have not yet been exercised in a recorded run.
+
+This facility reports engine state only and cannot report faction mob membership, target grants, or profile selection. Reserve it for ownership-authority and position-desync questions, and enable one category at a time; `Zombie`, `Combat`, or `Network` at `Debug` severity in a live multiplayer session produces enough volume to displace mod output.
+
+### Visual debug options
+
+`debug-options.ini` holds render and behavior flags. The engine loads the file during normal startup on both the client and the dedicated server, but the options below additionally require the client to run in debug mode before they draw anything. Administrator rights in multiplayer expose the debug context menu and the Horde Spawner without enabling debug mode, and are not sufficient for these options.
+
+Options useful during faction-combat runs, all requiring a debug-mode client:
+
+- `Pathfind.Render.Path` — shows whether pursuit issued a usable path. Drawn from `debugRenderLast`, which the engine calls only under debug mode.
+- `Multiplayer.DebugFlags.Zombie.Enable` with `.State` — distinguishes active from dormant mob members on sight.
+- `Multiplayer.DebugFlags.Zombie.Position` with `.Prediction` — shows the server/client position gap behind distance rejections. This family is declared debug-only.
+
+These change presentation only and do not affect log volume. Prefer leaving them off when a run's purpose is to compare against earlier evidence captured without debug mode; changing the client launch mode changes the run's conditions.
+
 ## Baseline faction-combat procedure
 
 1. Confirm the installed mod reports the intended version in both server and client logs.

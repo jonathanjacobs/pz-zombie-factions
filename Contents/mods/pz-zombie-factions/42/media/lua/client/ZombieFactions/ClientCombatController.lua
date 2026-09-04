@@ -17,7 +17,7 @@ local controller = {
     impactRequestBudget = 0,
     updateCountdown = 0,
     summaryCountdown = SUMMARY_INTERVAL_TICKS,
-    verbose = false,
+    verbose = true,
     zombieIndex = nil,
 }
 
