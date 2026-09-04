@@ -33,6 +33,7 @@
 ## Verification expectations
 
 - Keep `VERSION` and both `mod.info` versions aligned.
+- Use [`scripts/pretest-setup.ps1`](scripts/pretest-setup.ps1) and [`scripts/posttest-cleanup.ps1`](scripts/posttest-cleanup.ps1) for the mod-deploy/log-clear/log-capture steps around a test run; see [`scripts/README.md`](scripts/README.md).
 - Update the repeatable procedure in `docs/TESTING.md` with runtime-test changes.
 - Record observed outcomes only after a real run in `docs/VALIDATION_HISTORY.md`; retain bounded experimental detail in `docs/spikes/`.
 - Check staged changes for private logs/data, saves, extracted assets, and unrelated files before committing.
