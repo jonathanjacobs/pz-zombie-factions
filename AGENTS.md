@@ -10,7 +10,7 @@
 
 1. Run `git status --short --branch` and preserve unrelated changes.
 2. Read [`docs/DOCUMENTATION_OWNERSHIP.md`](docs/DOCUMENTATION_OWNERSHIP.md) before changing documentation.
-3. Use the canonical document for the subject: requirements, architecture/ADRs, roadmap, testing, validation history, spikes, or policy/provenance.
+3. Use the canonical document for the subject: requirements, architecture/ADRs, roadmap, testing, validation history, spikes, or policy/provenance. See [`docs/RESEARCH_LINKS.md`](docs/RESEARCH_LINKS.md) for external wiki/API/community references.
 4. Treat reproducible tests and Project Zomboid logs as stronger evidence than remembered API behavior.
 
 ## Project facts

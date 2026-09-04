@@ -32,3 +32,10 @@ The current implementation remains diagnostic tooling. The administrator Horde S
 - [`COMPLIANCE.md`](COMPLIANCE.md) and [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md) — policy, provenance, and release controls.
 
 Original project source is licensed under Apache-2.0. Project Zomboid assets and code are not redistributed or relicensed by this repository. Zombie Factions is an unofficial independent community mod.
+
+## Other Workshop mods by this author
+
+Published under Steam account [`bioinformer`](https://steamcommunity.com/id/bioinformer/myworkshopfiles/?appid=108600):
+
+- [Trader Vending Machines - Network Tuner](https://steamcommunity.com/sharedfiles/filedetails/?id=3793134223)
+- [Enshrouded Sleep - Release Candidate](https://steamcommunity.com/sharedfiles/filedetails/?id=3786842301)
