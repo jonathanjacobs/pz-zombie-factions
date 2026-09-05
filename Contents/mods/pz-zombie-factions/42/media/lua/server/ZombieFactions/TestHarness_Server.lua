@@ -81,7 +81,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.37 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.38 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -859,8 +859,7 @@ queueTargetSubject = function(subject, runId, requester, remaining, reason, dela
     local leaderMember = chooseMobLeader(mob, reason or "queue")
     if not leaderMember then return false, "mob-has-no-leader" end
     if mobHasActiveProbe(mob) then
-        if reason == "spawn"
-            and not subjectHasProbe(subject)
+        if not subjectHasProbe(subject)
             and activateMobMemberAgainstCurrent
             and activateMobMemberAgainstCurrent(mob, subject)
         then
@@ -932,6 +931,20 @@ local function maintainStableMobs()
                     "mob-dormant-wake",
                     TARGET_PROBE_SCAN_INTERVAL_TICKS
                 )
+            elseif leaderMember and activateMobMemberAgainstCurrent then
+                -- The mob already has an active prober elsewhere. That prober's
+                -- own activity never revisits its idle mobmates, so sweep them
+                -- here instead of leaving them dormant for the mob's lifetime.
+                for i = 1, #mob.members do
+                    local member = mob.members[i]
+                    if memberIsValid(mob, member)
+                        and ownerPlayer(member.subject)
+                        and not ZombieFactions.MobWakeupBySubjectId[member.subjectId]
+                        and not subjectHasProbe(member.subject)
+                    then
+                        activateMobMemberAgainstCurrent(mob, member.subject)
+                    end
+                end
             end
         end
     end

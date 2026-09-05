@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.38 — 2026-09-05
+
+Unvalidated dormant-mob-member fix for the next dedicated-server runtime test.
+
+- lets a mob's periodic maintenance sweep individually reactivate any idle member of an already-active mob, instead of skipping the whole mob whenever any one member holds a live target;
+- reuses the existing single-member reactivation route (previously reachable only at spawn time) for that sweep and for a member's own reacquire request after losing its target, instead of failing both with `mob-already-active`;
+- addresses the dormant-member gap recorded against [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2): a mixed 24v24/240v240 dedicated-server run reproduced it directly in the log evidence (zero `mob-dormant-wake` events across a 20-minute session; 109 `mob-already-active` reacquire rejections, concentrated as the fight wound down), showing the prior closure was a high-churn timing artifact rather than a non-issue.
+
 ## 0.0.37 — 2026-08-31
 
 Unvalidated seated-defender extension for the next dedicated-server runtime test.
