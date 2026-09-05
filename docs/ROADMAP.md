@@ -13,10 +13,10 @@ The validated diagnostic combat route is not yet normal gameplay behavior. The n
 - [x] Restore visible Horde Spawner controls and confirm one server spawn for each first-click client success ([#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5)).
 - [x] Add independently configurable client/server combat-distance gates and adopt `0.80`/`1.60` as the defaults without weakening the remaining authority checks ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1)).
 - [x] Recheck stale standing-bite presentation under sustained crowd combat; the current build did not reproduce the visual defect, so no cancellation change was added ([#4](https://github.com/jonathanjacobs/pz-zombie-factions/issues/4)).
+- [x] Validate the v0.0.38 dormant-mob-member fix. A follow-up mixed 24v24/240v240 run recorded a periodic-sweep reactivation of a previously dormant member three minutes after the last spawn, with no player action, and full activation of a 480-zombie double spawn within roughly ten seconds. Closed [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2).
 
 ### Open follow-up work
 
-- [ ] Validate the v0.0.38 dormant-mob-member fix. A mixed 24v24/240v240 dedicated-server run reproduced the defect directly — zero `mob-dormant-wake` recovery events across a 20-minute session and 109 `mob-already-active` reacquire rejections, concentrated as the fight wound down — showing the prior [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2) closure was a high-churn timing artifact, not a non-issue. Reopen #2 pending this validation.
 - [ ] Validate the v0.0.37 standing-to-sitting stomp, accepted damage, native get-up transition, and subsequent standing behavior.
 - [ ] Validate the v0.0.36 crawler combat matrix: crawler-to-crawler lunge, crawler-to-standing lunge, standing-to-crawler stomp, ordinary crawler-to-player regression, and standing-to-standing regression ([SPIKE-004](spikes/SPIKE-004-crawler-combat-profiles.md)).
 - [ ] Validate the Red/Blue/Vanilla relationship matrix, including expected Neutral behavior.
