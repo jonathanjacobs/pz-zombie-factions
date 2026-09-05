@@ -75,18 +75,29 @@ if (-not $hostFingerprint) {
 }
 $curlArgs = @('--hostpubsha256', $hostFingerprint)
 
-Write-Host "== Remote: downloading server logs from $remoteLogsDir =="
+Write-Host "== Remote: downloading server logs from $remoteLogsDir (recursive) =="
 $serverStage = Join-Path $env:TEMP "pzserver_$Stamp"
 New-Item -ItemType Directory -Force -Path $serverStage | Out-Null
 
-$listing = & $Curl @curlArgs -sS --user $userPass "sftp://${sftpHost}:${sftpPort}/${remoteLogsDir}/"
-foreach ($line in ($listing -split "`n")) {
-    $parts = $line.Trim() -split '\s+'
-    $name = $parts[-1]
-    if ($name -and $name -ne '.' -and $name -ne '..') {
-        & $Curl @curlArgs -sS --user $userPass -o (Join-Path $serverStage $name) "sftp://${sftpHost}:${sftpPort}/${remoteLogsDir}/${name}"
+function Get-RemoteDirRecursive {
+    param([string]$RemotePath, [string]$LocalPath)
+    New-Item -ItemType Directory -Force -Path $LocalPath | Out-Null
+    $listing = & $Curl @curlArgs -sS --user $userPass "sftp://${sftpHost}:${sftpPort}/${RemotePath}/"
+    foreach ($line in ($listing -split "`n")) {
+        $parts = $line.Trim() -split '\s+'
+        if ($parts.Length -lt 9) { continue }
+        $perms = $parts[0]
+        $name = $parts[-1]
+        if (-not $name -or $name -eq '.' -or $name -eq '..') { continue }
+        if ($perms.StartsWith('d')) {
+            Get-RemoteDirRecursive -RemotePath "$RemotePath/$name" -LocalPath (Join-Path $LocalPath $name)
+        } else {
+            & $Curl @curlArgs -sS --user $userPass -o (Join-Path $LocalPath $name) "sftp://${sftpHost}:${sftpPort}/${RemotePath}/${name}"
+        }
     }
 }
+
+Get-RemoteDirRecursive -RemotePath $remoteLogsDir -LocalPath $serverStage
 if ($remoteConsole) {
     & $Curl @curlArgs -sS --user $userPass -o (Join-Path $serverStage 'server-console.txt') "sftp://${sftpHost}:${sftpPort}/${remoteConsole}"
 }

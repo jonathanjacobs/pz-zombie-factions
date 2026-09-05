@@ -9,6 +9,8 @@ Use a dedicated Build 42.20.x server and at least one client. Capture clean clie
 
 Mod deployment (local and remote) and clearing local/remote logs and console output before a run, plus collecting and zipping both sides' logs after, are automated by [`../scripts/pretest-setup.ps1`](../scripts/pretest-setup.ps1) and [`../scripts/posttest-cleanup.ps1`](../scripts/posttest-cleanup.ps1) — see [`../scripts/README.md`](../scripts/README.md). Server/client launch, admin login, and Horde Spawner cleanup remain manual.
 
+The client's `DebugLog.txt` caps in place at roughly 4.3MB observed on this machine: once a session's cumulative log volume crosses that line, the file silently drops its own oldest lines, with nothing recoverable afterward. The server-side log has shown no equivalent cap. In one session mixing a small-scale test with a mass-combat stress test, this let the mass-combat volume alone push the small-scale phase's client-side detail out of the file before the session ended, leaving only server-side evidence for that phase. Run [`../scripts/snapshot-client-log.ps1`](../scripts/snapshot-client-log.ps1) right after each phase worth preserving, before starting the next — it copies the live client logs without stopping or clearing anything.
+
 ## Diagnostic verbosity
 
 Two independent facilities produce evidence. Enable the mod's own diagnostics first; it is the only source that reports faction mob membership, target grants, and damage-probe decisions.
