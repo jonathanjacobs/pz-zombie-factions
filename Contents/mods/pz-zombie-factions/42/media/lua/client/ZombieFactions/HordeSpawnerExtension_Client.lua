@@ -10,7 +10,7 @@ local REL = ZombieFactions.Relationship
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.38")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.39")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -25,8 +25,11 @@ end
 
 local function addHarnessBottomButtons(self, spacing, buttonHeight)
     -- Late resizing does not reliably relocate the vanilla anchorBottom controls.
-    -- Hide those displaced controls and create one independent visible set after
-    -- the final window height is known.
+    -- Detach those displaced controls and create one independent visible set
+    -- after the final window height is known. A hidden-but-still-a-child
+    -- control remains in the parent's hit-test order and could still consume
+    -- the first click at the coordinates the new harness buttons now occupy,
+    -- so remove it from the parent outright instead of only hiding it.
     local x = 11
     local gap = spacing
     local buttonWidth = math.floor((self:getWidth() - (x * 2) - gap) / 2)
@@ -40,6 +43,7 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
         if control then
             control:setEnable(false)
             control:setVisible(false)
+            self:removeChild(control)
         end
     end
 

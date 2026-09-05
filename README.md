@@ -3,12 +3,12 @@
 A Project Zomboid Build 42 framework for zombie-faction identity and directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationships.
 
 - Status: **Research / Pre-Alpha**
-- Current version: **v0.0.38**
+- Current version: **v0.0.39**
 - Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Current state
 
-SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 closed successfully for the dedicated-server, one-client standing-zombie scope. A v0.0.36 mixed-crowd run exercised crawler lunges, standing stomps, and standing bites with accepted server damage and no profile mismatch or Zombie Factions exception. Version 0.0.37 added an unvalidated seated-defender rule: standing attackers stomp sitting zombies, which then use the shipped get-up transition after accepted nonlethal damage. Version 0.0.38 fixes [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2): idle members of an already-active mob now get individually swept for a fresh target instead of being permanently skipped by the maintenance pass. A follow-up dedicated-server run confirmed the sweep reactivating a previously dormant member on its own, and closed the issue.
+SPIKE-001 established faction-aware zombie pursuit, synchronized damage, and normal lethal corpse handling in dedicated-server testing. SPIKE-003 closed successfully for the dedicated-server, one-client standing-zombie scope. A v0.0.36 mixed-crowd run exercised crawler lunges, standing stomps, and standing bites with accepted server damage and no profile mismatch or Zombie Factions exception. Version 0.0.37 added an unvalidated seated-defender rule: standing attackers stomp sitting zombies, which then use the shipped get-up transition after accepted nonlethal damage. Version 0.0.38 fixes [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2): idle members of an already-active mob now get individually swept for a fresh target instead of being permanently skipped by the maintenance pass. A follow-up dedicated-server run confirmed the sweep reactivating a previously dormant member on its own, and closed the issue. Version 0.0.39 adds an unvalidated hardening of the [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5) Horde Spawner first-click fix: the vanilla controls behind the harness buttons are now fully detached rather than only hidden.
 
 The current implementation remains diagnostic tooling. The administrator Horde Spawning extension creates selected test factions and an opt-in SPIKE harness; ordinary vanilla spawning remains unchanged when it is disabled. Production enrollment, persistence, and relationship behavior outside the harness remain planned work.
 

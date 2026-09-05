@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.39 — 2026-09-05
+
+Unvalidated Horde Spawner first-click fix for [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5).
+
+- detaches the vanilla anchorBottom controls (Spawn, Close, Remove Zombies, Remove Bodies) from the panel entirely instead of only disabling and hiding them, so a hidden-but-still-a-child control at the same coordinates as the new harness buttons can no longer intercept the first click's hit test;
+- the v0.0.34 fix for this issue passed its own validation but the underlying click-ownership defect has since recurred in later testing; this hardens that fix rather than replacing its approach.
+
 ## 0.0.38 — 2026-09-05
 
 Unvalidated dormant-mob-member fix for the next dedicated-server runtime test.
