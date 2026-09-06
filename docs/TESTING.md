@@ -146,6 +146,17 @@ actually played one". Expect roughly one to two loops per second while sprint in
 is held. Zero means the node never won selection. Do not read the raw loop count on its
 own. Require `sprintVariableErrors=0` throughout.
 
+From v0.0.42, three counters cover braking. `sprintBrakeDistanceAvg` reports where
+sprint was actually dropped; it reads lower than the configured distance because the
+brake fires on the first pass at or inside it and a converging pair closes about `0.68`
+tiles per pass. `sprintMeleeAuthDistanceAvg` reports the pair distance at the first
+melee authorization of each engagement, and is the figure that shows whether braking
+worked — a v0.0.42 run recorded `0.51`–`0.54` where an unbraked pair had never been
+authorized at all. `sprintOvershoots` counts passes where a pair inside the engagement
+band got further apart while sprint was active, so it should stay near zero; before
+v0.0.43 it was gated on speed type rather than sprint state and also counted ordinary
+jostling at melee range.
+
 Per-event diagnostics are unbounded. Either disable them before any mass-combat phase
 or snapshot between phases; a v0.0.40 session lost all but its final 18 seconds of
 client log to the in-place cap described above, including the evidence for its own
