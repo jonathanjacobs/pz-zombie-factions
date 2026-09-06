@@ -29,11 +29,18 @@ local SPRINT_PLAYED_VARIABLE = "ZombieFactionsSprintPlayed"
 local SPRINT_LOG_INTERVAL_TICKS = 2 * CLIENT_TICKS_PER_SECOND
 local TRAVEL_SAMPLE_MAX_GAP_SECONDS = 0.5
 local TRAVEL_PRUNE_INTERVAL_PASSES = 50
+-- Sprint is dropped this far out so the last stretch is walked. Sized from the
+-- v0.0.41 measurement: a sprinter covers ~0.34 tiles per controller pass, a
+-- converging pair closes ~0.68, and the walk animation needs about a third of a
+-- second to blend in, over which a converging pair still covers ~1.4 tiles. This
+-- is an estimate; the brake and first-authorisation distances are both recorded
+-- so it can be tuned from evidence rather than arithmetic.
+local SPRINT_BRAKE_DISTANCE = 2.50
 
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.41")
+print("[ZombieFactions] Client target observer loaded v0.0.42")
 
 local function print(message)
     CombatController.detail(message)
@@ -563,7 +570,21 @@ local function enterPursuit(record, reason, forceRefresh)
     -- Re-checked every pass rather than once, so a zombie that stops being an
     -- upright sprinter mid-approach drops the request immediately.
     record.sprintEligible = isSprintEligible(subject)
-    setSprintIntent(record, record.sprintEligible)
+
+    -- Brake well outside the engagement band so the final approach is walked.
+    -- Previously sprint was only dropped once enterEngagement ran at contact
+    -- distance, meaning a sprinter ran at full speed right up to the point it was
+    -- supposed to have already stopped. Walking that last stretch leaves the
+    -- shared engagement, commitment and contact distances behaving for a sprinter
+    -- exactly as they already do for a shambler, so nothing shared needs widening
+    -- and non-sprinters are untouched.
+    local approachDistance = distanceBetween(subject, candidate)
+    local braking = approachDistance <= SPRINT_BRAKE_DISTANCE
+    if record.sprintEligible and braking and record.sprintActive then
+        CombatController.increment("sprintBrakes")
+        CombatController.increment("sprintBrakeDistanceSum", approachDistance)
+    end
+    setSprintIntent(record, record.sprintEligible and not braking)
     if forceRefresh
         or previousMode ~= desiredMode
         or candidateMovedFromPath(record)
@@ -719,6 +740,7 @@ local function beginOwnerProbe(record)
     record.sprintActive = false
     record.sprintEligible = false
     record.sprintLogCountdown = 0
+    record.lastPassDistance = nil
     record.pathRefreshCountdown = 0
     if record.persistent then
         record.remaining = 0
@@ -949,8 +971,26 @@ local function updateTargetRecord(record, stepTicks)
         CombatController.authorizeMelee(record.subjectId, record.candidateId)
         if not record.meleeCommitted then
             CombatController.increment("meleeCommitments")
+            -- Distance at the first authorisation of each engagement. If braking
+            -- works this should sit inside the commitment band rather than the
+            -- pair skipping past it.
+            if record.sprintEligible then
+                CombatController.increment("sprintMeleeAuths")
+                CombatController.increment("sprintMeleeAuthDistanceSum", distance)
+            end
         end
     end
+
+    -- Direct measure of the overshoot that made two sprinters circle each other:
+    -- the pair was inside the engagement band and then got further apart.
+    if record.sprintEligible
+        and record.lastPassDistance ~= nil
+        and distance <= ENGAGEMENT_DISTANCE
+        and distance > record.lastPassDistance
+    then
+        CombatController.increment("sprintOvershoots")
+    end
+    record.lastPassDistance = distance
     record.meleeCommitted = meleeCommitted
 
     -- Both sides, so a defender that never pursues still supplies a control figure.

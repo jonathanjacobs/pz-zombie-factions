@@ -121,6 +121,12 @@ local function tilesPerSecond(bucket)
     return metric(bucket .. "TravelTiles") / seconds
 end
 
+local function average(sumName, countName)
+    local count = metric(countName)
+    if count <= 0 then return 0 end
+    return metric(sumName) / count
+end
+
 local function printSummary()
     local trackedTargets = gauge("trackedTargets")
     local trackedImpacts = gauge("trackedImpacts")
@@ -136,7 +142,7 @@ local function printSummary()
     -- animation loop and a raw ratio therefore understates a healthy node.
     local intentSeconds = metric("sprintIntentSeconds")
     print(string.format(
-        "[ZombieFactions][SPRINT_PERF] sprintActivations=%d sprintClears=%d sprintVariableErrors=%d sprintIntentSeconds=%.1f sprintNodeLoops=%d sprintNodeLoopsPerSecond=%.2f sprintTilesPerSecond=%.3f sprintTravelSamples=%d shamblerTilesPerSecond=%.3f shamblerTravelSamples=%d",
+        "[ZombieFactions][SPRINT_PERF] sprintActivations=%d sprintClears=%d sprintVariableErrors=%d sprintIntentSeconds=%.1f sprintNodeLoops=%d sprintNodeLoopsPerSecond=%.2f sprintTilesPerSecond=%.3f sprintTravelSamples=%d shamblerTilesPerSecond=%.3f shamblerTravelSamples=%d sprintBrakes=%d sprintBrakeDistanceAvg=%.2f sprintMeleeAuths=%d sprintMeleeAuthDistanceAvg=%.2f sprintOvershoots=%d",
         metric("sprintActivations"),
         metric("sprintClears"),
         metric("sprintVariableErrors"),
@@ -146,7 +152,12 @@ local function printSummary()
         tilesPerSecond("sprint"),
         metric("sprintTravelSamples"),
         tilesPerSecond("shambler"),
-        metric("shamblerTravelSamples")
+        metric("shamblerTravelSamples"),
+        metric("sprintBrakes"),
+        average("sprintBrakeDistanceSum", "sprintBrakes"),
+        metric("sprintMeleeAuths"),
+        average("sprintMeleeAuthDistanceSum", "sprintMeleeAuths"),
+        metric("sprintOvershoots")
     ))
 
     print(string.format(

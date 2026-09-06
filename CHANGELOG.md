@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.42 — 2026-09-06
+
+Unvalidated sprinter braking for [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10), which the v0.0.41 run reproduced between two sprinters far more severely than the shambler case that first recorded it.
+
+- clears sprint intent at 2.50 tiles instead of waiting for contact distance, so a sprinter walks the final approach. Previously sprint was only dropped once `enterEngagement` ran at 0.50 tiles, meaning a sprinter ran at full speed right up to the point it was supposed to have already stopped, with no deceleration phase at all;
+- leaves the shared `ENGAGEMENT_DISTANCE`, `MELEE_COMMITMENT_DISTANCE` and `CONTACT_DISTANCE` values untouched, so they behave for a braked sprinter exactly as they already do for a shambler and non-sprinters are unaffected;
+- adds `sprintBrakes`, `sprintBrakeDistanceAvg`, `sprintMeleeAuths`, `sprintMeleeAuthDistanceAvg` and `sprintOvershoots`, so the 2.50 estimate can be tuned from a run rather than from arithmetic, and so overshoot is measured directly;
+- leaves the 24 approach-offset slots unchanged, so that if braking works it is unambiguous which change was responsible.
+
+The measurement behind it: at 10 Hz controller passes a sprinter advances 0.33–0.35 tiles per pass and a converging pair closes 0.66–0.70, while the whole 1.20-to-0.50 engagement band is 0.70 tiles wide and melee authorisation needs a pass observing 0.65 or nearer. A converging pair can cross the band between two passes and never be seen inside the authorising window; a shambler at 0.05 tiles per pass gets roughly fourteen observations inside it.
+
 ## 0.0.41 — 2026-09-05
 
 Corrects two sprinter diagnostics that made the v0.0.40 run unable to prove its own result. No behavior change.
