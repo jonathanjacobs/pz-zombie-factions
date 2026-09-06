@@ -27,11 +27,13 @@ local SPEED = ZombieFactions.SpeedType
 local SPRINT_VARIABLE = "ZombieFactionsSprint"
 local SPRINT_PLAYED_VARIABLE = "ZombieFactionsSprintPlayed"
 local SPRINT_LOG_INTERVAL_TICKS = 2 * CLIENT_TICKS_PER_SECOND
+local TRAVEL_SAMPLE_MAX_GAP_SECONDS = 0.5
+local TRAVEL_PRUNE_INTERVAL_PASSES = 50
 
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.40")
+print("[ZombieFactions] Client target observer loaded v0.0.41")
 
 local function print(message)
     CombatController.detail(message)
@@ -158,45 +160,79 @@ local function setSprintIntent(record, active)
     CombatController.increment("sprintClears")
 end
 
--- Ground truth for "did it actually go faster": planar tiles covered per second
--- while under our pursuit control, bucketed by speed class so a shambler in the
--- same run is a directly comparable control.
-local function sampleTravel(record, stepTicks, moving)
-    local subject = record.subject
-    local x = safeCall(nil, function() return subject:getX() end)
-    local y = safeCall(nil, function() return subject:getY() end)
-    if x == nil or y == nil then
-        record.lastTravelX = nil
+-- Ground truth for "did it actually go faster": planar tiles covered per second,
+-- bucketed by speed class so a shambler in the same run is a directly comparable
+-- control.
+--
+-- Sampling is keyed on the zombie rather than on a grant, and measures only while
+-- the engine reports the zombie as moving. Both are deliberate. The v0.0.40 run
+-- produced no control at all because it sampled the granted attacker only, and a
+-- defender that never pursues never holds a grant; sampling both sides of every
+-- tracked pair means any moving shambler contributes a baseline. Gating on actual
+-- movement keeps the figure comparable, since a stationary zombie would otherwise
+-- drag its bucket toward zero for reasons that have nothing to do with speed.
+local travelSamples = {}
+
+local function sampleZombieTravel(zombie, stepTicks)
+    if not zombie then return end
+    local onlineId = zombieOnlineId(zombie)
+    if onlineId == -1 then return end
+
+    local pass = CombatController.passSequence
+    local prior = travelSamples[onlineId]
+    if prior and prior.pass == pass then return end
+
+    local moving = variableBool(zombie, "bMoving")
+    local x = safeCall(nil, function() return zombie:getX() end)
+    local y = safeCall(nil, function() return zombie:getY() end)
+    if not moving or x == nil or y == nil then
+        travelSamples[onlineId] = nil
         return
     end
 
-    if moving and record.lastTravelX ~= nil then
-        local dx = x - record.lastTravelX
-        local dy = y - record.lastTravelY
-        local bucket = record.sprintEligible and "sprint" or "shambler"
-        CombatController.increment(bucket .. "TravelTiles", math.sqrt(dx * dx + dy * dy))
-        CombatController.increment(bucket .. "TravelSeconds", stepTicks / CLIENT_TICKS_PER_SECOND)
-        CombatController.increment(bucket .. "TravelSamples")
+    if prior then
+        local elapsed = (pass - prior.pass) * stepTicks / CLIENT_TICKS_PER_SECOND
+        -- Only consecutive observations describe a real displacement; a longer gap
+        -- means the zombie was untracked or stationary in between.
+        if elapsed > 0 and elapsed <= TRAVEL_SAMPLE_MAX_GAP_SECONDS then
+            local dx = x - prior.x
+            local dy = y - prior.y
+            local bucket = isSprintEligible(zombie) and "sprint" or "shambler"
+            CombatController.increment(bucket .. "TravelTiles", math.sqrt(dx * dx + dy * dy))
+            CombatController.increment(bucket .. "TravelSeconds", elapsed)
+            CombatController.increment(bucket .. "TravelSamples")
+        end
     end
 
-    record.lastTravelX = moving and x or nil
-    record.lastTravelY = moving and y or nil
+    travelSamples[onlineId] = {x = x, y = y, pass = pass}
 end
 
--- The animation node sets its own variable early in each loop. Reading and
--- clearing it here is the only evidence that the node was actually selected,
--- as opposed to the mod merely having asked for it.
+local function pruneTravelSamples()
+    local pass = CombatController.passSequence
+    if pass % TRAVEL_PRUNE_INTERVAL_PASSES ~= 0 then return end
+    for onlineId, entry in pairs(travelSamples) do
+        if pass - entry.pass > TRAVEL_PRUNE_INTERVAL_PASSES then
+            travelSamples[onlineId] = nil
+        end
+    end
+end
+
+-- The animation node sets its own variable once per loop of the clip. Counting
+-- loops against the time sprint intent was held gives a rate that reads the same
+-- way regardless of how often we sample: roughly one to two loops per second means
+-- the node is playing, and zero means it never won selection. The v0.0.40 build
+-- counted raw hits and misses instead, which made a healthy node look like it was
+-- failing five times out of six purely because we polled faster than it looped.
 local function sampleSprintNode(record)
     local subject = record.subject
     if variableBool(subject, SPRINT_PLAYED_VARIABLE) then
-        CombatController.increment("sprintNodePlayedSamples")
+        CombatController.increment("sprintNodeLoops")
         safeCall(false, function()
             subject:setVariable(SPRINT_PLAYED_VARIABLE, false)
             return true
         end)
         return true
     end
-    CombatController.increment("sprintNodeMissingSamples")
     return false
 end
 
@@ -683,8 +719,6 @@ local function beginOwnerProbe(record)
     record.sprintActive = false
     record.sprintEligible = false
     record.sprintLogCountdown = 0
-    record.lastTravelX = nil
-    record.lastTravelY = nil
     record.pathRefreshCountdown = 0
     if record.persistent then
         record.remaining = 0
@@ -919,9 +953,12 @@ local function updateTargetRecord(record, stepTicks)
     end
     record.meleeCommitted = meleeCommitted
 
-    local approaching = record.controlMode == "pursuit" or record.controlMode == "contact-closing"
-    sampleTravel(record, stepTicks, approaching)
+    -- Both sides, so a defender that never pursues still supplies a control figure.
+    sampleZombieTravel(zombie, stepTicks)
+    sampleZombieTravel(candidate, stepTicks)
+
     if record.sprintActive then
+        CombatController.increment("sprintIntentSeconds", stepTicks / CLIENT_TICKS_PER_SECOND)
         local nodePlaying = sampleSprintNode(record)
         record.sprintLogCountdown = (record.sprintLogCountdown or 0) - stepTicks
         if record.sprintLogCountdown <= 0 then
@@ -948,6 +985,8 @@ local function updateTargetRecord(record, stepTicks)
 end
 
 local function onControllerUpdate(stepTicks)
+    pruneTravelSamples()
+
     for i = #pending, 1, -1 do
         local record = pending[i]
         record.ticks = record.ticks - stepTicks

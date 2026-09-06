@@ -1,10 +1,9 @@
 # SPIKE-005 — Sprinter locomotion during faction pursuit
 
-Status: v0.0.40 implemented, awaiting its first runtime test. Open question 1 was
-resolved from archived logs before implementation, and that resolution reversed
-this document's original prediction.
-Target: Project Zomboid Build 42.20.x
-Implementation: v0.0.40
+Status: v0.0.40 passed its first runtime test operationally; v0.0.41 corrects two
+diagnostics that left the result unproven by measurement. Open questions 1, 2, 3 and 6
+are resolved. Target: Project Zomboid Build 42.20.x
+Implementation: v0.0.40–v0.0.41
 
 ## Question
 
@@ -305,15 +304,14 @@ Mixed-crowd and 4v4 runs come after the isolated matrix passes, not instead of i
    `walktoward`, by a wide margin, in three archived sessions. See Engine findings. A
    mod-owned animation node is therefore required, and the shipped sprint nodes are
    unusable.
-2. **Does a mod-owned `walktoward` node actually win selection against `sprintWalk*`?**
-   The mod node would carry one more matched condition. Whether the shipped selector
-   resolves on condition count, declared priority, or file order is unverified, and
-   this is now the primary implementation risk.
-3. **What walk type does the *owning client* hold?** Speed type reading `1` on the
-   client implies a sprint walk type, but the two are set through different paths and
-   the network simulator may rewrite walk type from packets. Both must be logged
-   separately, on the owner. This is now load-bearing: the mod node is keyed on walk
-   type, so a rewritten walk type would silently disable it.
+2. ~~**Does a mod-owned `walktoward` node actually win selection against `sprintWalk*`?**~~
+   **Resolved: yes.** One extra matched condition is sufficient; no declared priority
+   was needed. The v0.0.40 run sustained 2.0–2.6 tiles/second under pursuit with the
+   node reporting itself as playing throughout.
+3. ~~**What walk type does the *owning client* hold?**~~ **Resolved: the requested
+   one.** Speed assignment verified on the server for all 2,098 zombies across 23
+   spawns, and the owner-side sprint probe reported sprinter walk types during
+   pursuit. Nothing rewrote them.
 4. **What is a sprinter's real per-controller-pass displacement**, and how does it
    compare to the 0.65 → 0.50 authorization band? This determines whether the
    controller interval, the band, or the approach offsets need to change — and whether
@@ -342,6 +340,41 @@ Mixed-crowd and 4v4 runs come after the isolated matrix passes, not instead of i
    `setZombieSpeedType(zombie, speedType)` server operation costs little now and is
    the same primitive a later reassignment feature needs. Proposal: build the server
    operation, expose only the spawner path in this spike.
+
+## Runtime observation
+
+The v0.0.40 dedicated-server run with one client exercised sprinter attackers against
+shambler, sprinter, crawler, and sitting defenders, followed by mass sprinter combat.
+Speed assignment succeeded on all 23 spawn requests covering 2,098 zombies, with
+`speedFailed=0` and the random selector resolving correctly. Measured pursuit travel
+held at 2.0–2.6 tiles per second with `sprintVariableErrors=0`, and posture-based
+attack selection was undisturbed (`damageProfileRejected=0`, `damageConfigMismatch=0`).
+The operator reported all four posture cases and the mass-combat case working.
+
+Two diagnostics in that build could not support the conclusion they existed to test.
+The shambler control recorded zero samples, because travel was sampled only for the
+granted attacker and the control shamblers were non-pursuing defenders that never held
+a grant. The node-selection counter reported 721 hits against 4,603 misses, which is
+the arithmetic of polling ten times a second against an animation that announces itself
+about 1.5 times a second, not a failing node. Version 0.0.41 samples both sides of each
+pair, gates on the engine's movement flag, and reports node loops per second. The
+locomotion result is therefore operationally established but not yet demonstrated
+against a same-run baseline.
+
+The run also lost most of its client-side evidence. `DebugLog.txt` retained only the
+final 18 seconds of an 18-minute session under the in-place cap described in
+[`../TESTING.md`](../TESTING.md), so the isolated pair phases and the reported
+intermittent Spawn click cannot be examined. Future sprinter runs should either
+disable per-event diagnostics before mass combat or snapshot between phases.
+
+Separately, the single fast shambler in the session never retaliated and was killed
+without attacking. The evidence points at grant lifecycle rather than speed: its grant
+ended in a `subject-identity-changed` release that does not requeue, and its
+retaliation wake was refused as `mob-already-active`, a refusal that occurred 99 times
+against 39 successes. The same release affected every zombie in that phase regardless
+of speed, and appears in the preceding v0.0.39 run. Tracked as
+[#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11); one zombie is
+not enough to clear speed type `2` outright.
 
 ## Relationship to existing work
 

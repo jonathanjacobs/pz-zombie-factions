@@ -131,14 +131,18 @@ local function printSummary()
 
     -- Reported separately from the intent counters below. Measured travel is the
     -- only evidence that a sprint request changed movement; the shambler figure
-    -- is the control it has to beat in the same run.
+    -- is the control it has to beat in the same run. Node loops are reported as a
+    -- rate rather than a hit ratio, because the poll interval is faster than the
+    -- animation loop and a raw ratio therefore understates a healthy node.
+    local intentSeconds = metric("sprintIntentSeconds")
     print(string.format(
-        "[ZombieFactions][SPRINT_PERF] sprintActivations=%d sprintClears=%d sprintVariableErrors=%d sprintNodePlayedSamples=%d sprintNodeMissingSamples=%d sprintTilesPerSecond=%.3f sprintTravelSamples=%d shamblerTilesPerSecond=%.3f shamblerTravelSamples=%d",
+        "[ZombieFactions][SPRINT_PERF] sprintActivations=%d sprintClears=%d sprintVariableErrors=%d sprintIntentSeconds=%.1f sprintNodeLoops=%d sprintNodeLoopsPerSecond=%.2f sprintTilesPerSecond=%.3f sprintTravelSamples=%d shamblerTilesPerSecond=%.3f shamblerTravelSamples=%d",
         metric("sprintActivations"),
         metric("sprintClears"),
         metric("sprintVariableErrors"),
-        metric("sprintNodePlayedSamples"),
-        metric("sprintNodeMissingSamples"),
+        intentSeconds,
+        metric("sprintNodeLoops"),
+        intentSeconds > 0 and metric("sprintNodeLoops") / intentSeconds or 0,
         tilesPerSecond("sprint"),
         metric("sprintTravelSamples"),
         tilesPerSecond("shambler"),

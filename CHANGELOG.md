@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.41 — 2026-09-05
+
+Corrects two sprinter diagnostics that made the v0.0.40 run unable to prove its own result. No behavior change.
+
+- samples travel for both sides of every tracked pair instead of the granted attacker only, so a defender that never pursues still contributes a control figure; the v0.0.40 run recorded `shamblerTravelSamples=0` because every control shambler was a non-pursuing defender and therefore never held a grant;
+- gates travel sampling on the engine's own movement flag rather than on the mod's control mode, keeping the comparison to "tiles per second while moving" so a stationary zombie cannot drag its bucket toward zero for reasons unrelated to speed;
+- keys sampling on the zombie rather than the grant, with per-pass deduplication and a bounded prune, so a zombie appearing in two grants is measured once;
+- replaces the misleading `sprintNodePlayedSamples` / `sprintNodeMissingSamples` pair with `sprintNodeLoops`, `sprintIntentSeconds`, and a derived `sprintNodeLoopsPerSecond`. The old counters compared a ten-per-second poll against an animation that announces itself about 1.5 times a second, so a healthy node reported roughly one hit per six polls and read as a failure.
+
 ## 0.0.40 — 2026-09-05
 
 Unvalidated sprinter locomotion implementation for the next dedicated-server runtime test ([SPIKE-005](docs/spikes/SPIKE-005-sprinter-locomotion.md)).

@@ -131,10 +131,21 @@ spawn reports `speedApplied` and `speedVerified` equal to the requested count wi
 
 The decisive evidence is the `[ZombieFactions][SPRINT_PERF]` line, not visual
 impression. `sprintTilesPerSecond` must be materially above `shamblerTilesPerSecond`
-measured in the same run, with both sample counts non-trivial. `sprintNodePlayedSamples`
-must dominate `sprintNodeMissingSamples`, which is what separates "the mod asked for a
-sprint" from "the game actually played one". Require `sprintVariableErrors=0`
-throughout.
+measured in the same run, with both sample counts non-trivial. From v0.0.41 both sides
+of every tracked pair are sampled while the engine reports them moving, so a shambler
+defender supplies the control without needing its own grant; a run that still reports
+`shamblerTravelSamples=0` had no moving shambler in it and cannot establish the
+comparison.
+
+`sprintNodeLoopsPerSecond` separates "the mod asked for a sprint" from "the game
+actually played one". Expect roughly one to two loops per second while sprint intent
+is held. Zero means the node never won selection. Do not read the raw loop count on its
+own. Require `sprintVariableErrors=0` throughout.
+
+Per-event diagnostics are unbounded. Either disable them before any mass-combat phase
+or snapshot between phases; a v0.0.40 session lost all but its final 18 seconds of
+client log to the in-place cap described above, including the evidence for its own
+isolated pair cases.
 
 Run these cases separately, capturing logs per phase with
 [`../scripts/snapshot-client-log.ps1`](../scripts/snapshot-client-log.ps1):
