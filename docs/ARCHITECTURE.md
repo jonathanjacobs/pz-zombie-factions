@@ -12,8 +12,10 @@ Contents/mods/pz-zombie-factions/
   42/media/lua/shared/ZombieFactions/  faction identity and relationship policy
   42/media/lua/server/ZombieFactions/  enrollment, grants, validation, death
   42/media/lua/client/ZombieFactions/  owner-local pursuit and presentation
-  42/media/AnimSets/                   mod-owned mappings to shipped bite clips
+  42/media/AnimSets/                   mod-owned nodes mapping shipped clips
 ```
+
+The animation nodes cover bites, crawler lunges, standing stomps, defender reactions, and sprint locomotion. Each maps a shipped clip and emits only mod-owned variables; none inherits from a shipped node or copies its native combat events.
 
 ## Faction policy
 
@@ -53,6 +55,8 @@ The v0.0.31 standing presentation result was invalidated by a client crash when 
 
 ## Diagnostic harness
 
-The administrator Horde Spawning extension and SPIKE checkbox are controlled-test tooling, not production enrollment. Build 42 does not reliably relocate the vanilla `anchorBottom` controls after the extension resizes the window, so the displaced originals are hidden and one independent control set is created after the final height is known. Vanilla spawning remains unchanged when the checkbox is disabled.
+The administrator Horde Spawning extension and SPIKE checkbox are controlled-test tooling, not production enrollment. Build 42 does not reliably relocate the vanilla `anchorBottom` controls after the extension resizes the window, so from v0.0.39 the displaced originals are detached from the panel outright rather than only disabled and hidden, and one independent control set is created after the final height is known. A hidden control remains in the parent's hit-test order and could still consume a click at the coordinates the harness buttons now occupy. The intermittent first-click defect has nonetheless recurred since ([#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5)); logs establish that every request reaching the button callback produces exactly one spawn, so the unexplained gap lies between the physical click and that callback, which is not currently instrumented.
+
+Version 0.0.40 adds a Spawn speed selector offering the shipped selectors — sprinter, fast shambler, shambler, random — plus a sandbox default that applies nothing. The server applies the selection through `ZombieFactions.setZombieSpeedType()` immediately after creating each zombie and reads the resolved value back, treating the random selector as legitimately resolving to something else. Choosing an explicit speed routes the spawn through the harness even for the Vanilla faction, because the vanilla asynchronous spawn returns no handle to apply a speed to. Vanilla spawning remains unchanged only when no faction, speed, or probe option is selected.
 
 For Issue #1 diagnostics, the server snapshots bounded `ClientCollisionDistance` and `ServerValidationDistance` sandbox values into each pair grant. The owner client still requires a real character collision before requesting an impact and reports its measured collision distance only as diagnostic evidence. The server never trusts that reported distance: it measures the pair again and applies its configured validation envelope plus every existing authority check. Effective values and bounded distance aggregates are emitted in the normal client/server performance summaries. Procedures and results are maintained in [`TESTING.md`](TESTING.md), [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md), and [`spikes/`](spikes/).

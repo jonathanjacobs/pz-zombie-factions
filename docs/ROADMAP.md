@@ -10,7 +10,7 @@ The validated diagnostic combat route is not yet normal gameplay behavior. The n
 ### Completed validation
 
 - [x] Validate standing faction-combat presentation without a native zombie target, including isolated-pair contact, sound, damage, reactions, and absence of the prior client crash ([#3](https://github.com/jonathanjacobs/pz-zombie-factions/issues/3); [SPIKE-003](spikes/SPIKE-003-synchronized-combat-presentation.md)).
-- [x] Restore visible Horde Spawner controls and confirm one server spawn for each first-click client success ([#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5)). The v0.0.34 fix passed its own validation but the click-ownership defect recurred in later testing; v0.0.39 fully detaches the hidden vanilla controls instead of only hiding them, and a follow-up run recorded a clean 1:1 correspondence across ten clicks with no double-click artifacts.
+- [x] Restore visible Horde Spawner controls. The controls themselves are fixed and every request reaching the button callback produces exactly one spawn. First-click reliability is not fixed: the v0.0.34 fix passed its own validation and the defect recurred, and the same happened again after v0.0.39 detached the hidden vanilla controls, so [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5) is open again. The remaining gap is between the physical click and the callback, which nothing currently logs.
 - [x] Add independently configurable client/server combat-distance gates and adopt `0.80`/`1.60` as the defaults without weakening the remaining authority checks ([#1](https://github.com/jonathanjacobs/pz-zombie-factions/issues/1)).
 - [x] Recheck stale standing-bite presentation under sustained crowd combat; the current build did not reproduce the visual defect, so no cancellation change was added ([#4](https://github.com/jonathanjacobs/pz-zombie-factions/issues/4)).
 - [x] Validate the v0.0.38 dormant-mob-member fix. A follow-up mixed 24v24/240v240 run recorded a periodic-sweep reactivation of a previously dormant member three minutes after the last spawn, with no player action, and full activation of a 480-zombie double spawn within roughly ten seconds. Closed [#2](https://github.com/jonathanjacobs/pz-zombie-factions/issues/2).
@@ -36,3 +36,9 @@ The validated diagnostic combat route is not yet normal gameplay behavior. The n
 ## Deferred layers
 
 Appearance, population rules, territory, abilities, loot, NPC integrations, and a public third-party API are separate layers. They are not prerequisites for the current faction-behavior milestone.
+
+Researched but deliberately parked, with the findings recorded on the issues rather than acted on:
+
+- Faction acquisition currently uses a flat 12-tile radius with none of the line-of-sight, facing, light or probability gates the shipped game applies inside its own 10–20 tile vision range. Making it configurable, and deciding how much of that shipped shape to adopt, is [#12](https://github.com/jonathanjacobs/pz-zombie-factions/issues/12).
+- Faction sprinters never stumble mid-chase, because the shipped trip roll requires a native target that faction pursuit deliberately holds clear. Reproducing it looks cheap but needs a get-up case in the safety interlock first: [#13](https://github.com/jonathanjacobs/pz-zombie-factions/issues/13).
+- Combat vocalizations are absent for the same reason, tracked as [#7](https://github.com/jonathanjacobs/pz-zombie-factions/issues/7).
