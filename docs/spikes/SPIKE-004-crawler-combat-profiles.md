@@ -1,6 +1,10 @@
 # SPIKE-004 — Crawler combat profiles
 
-Status: v0.0.36 mixed-crowd pass / v0.0.37 sitting alert retry awaiting validation
+Status: v0.0.36 mixed-crowd pass. The v0.0.37 sitting alert retry has since been
+confirmed: later runs recorded the stomp-to-bite transition and a completed get-up,
+with the first-versus-second stomp timing tracked as
+[#9](https://github.com/jonathanjacobs/pz-zombie-factions/issues/9). The isolated
+posture matrix and two-client ownership remain open.
 Target: Project Zomboid Build 42.20.x
 Implementation: v0.0.36-v0.0.37
 
@@ -32,4 +36,4 @@ These mixed-crowd totals do not independently prove every isolated pairing, ordi
 
 The first v0.0.37 sitting run recorded 11 seated stomp armings, 11 matching impacts, and seven owner-side get-up requests, but zero observed standing transitions. Direct observation confirmed that a separate sound event woke the same sitting zombies. This establishes that stomp selection and damage worked while the original animation-variable-only wake mechanism did not.
 
-The second v0.0.37 run again produced sustained sitting stomp traffic but recorded zero alerted or standing defenders. The client repeatedly reported `getX` access on a nil value from the sitting reaction callback. The error occurred while preparing coordinates, before `setTurnAlertedValues()` executed, so this run does not test whether the native alert route wakes the defender. The corrected server-coordinate dispatch remains awaiting validation.
+The second v0.0.37 run again produced sustained sitting stomp traffic but recorded zero alerted or standing defenders. The client repeatedly reported `getX` access on a nil value from the sitting reaction callback. The error occurred while preparing coordinates, before `setTurnAlertedValues()` executed, so this run does not test whether the native alert route wakes the defender. The corrected server-coordinate dispatch was validated afterwards: a later run recorded the stomp-to-bite profile transition and a completed get-up on a tracked pair. The remaining gap is that the first stomp does not reliably start the get-up, tracked as [#9](https://github.com/jonathanjacobs/pz-zombie-factions/issues/9).

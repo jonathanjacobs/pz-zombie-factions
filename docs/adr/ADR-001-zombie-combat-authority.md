@@ -27,7 +27,7 @@ Do not use player hit packets for faction zombies, represent faction zombies as 
 
 This model works with vanilla `IsoZombie` objects and the available Lua/API surface; no deeper engine hook is required for the validated diagnostic mechanics. It preserves server authority over policy and outcomes while respecting Build 42 zombie ownership.
 
-The tradeoff is a custom synchronization protocol and additional validation traffic. Ownership transfer, save/restart persistence, automatic enrollment, and multi-member mob scaling require separate production hardening. SPIKE-003 showed that attaching an `IsoZombie` as a native target can enter player-oriented `AttackState` and crash during a reaction event. Presentation must therefore remain cosmetic and keep the attacker's native target clear; v0.0.32 awaits validation of that correction.
+The tradeoff is a custom synchronization protocol and additional validation traffic. Ownership transfer, save/restart persistence, automatic enrollment, and multi-member mob scaling require separate production hardening. SPIKE-003 showed that attaching an `IsoZombie` as a native target can enter player-oriented `AttackState` and crash during a reaction event. Presentation must therefore remain cosmetic and keep the attacker's native target clear. The v0.0.32 correction was validated by the v0.0.34 run and has held since, through the crawler, stomp and sprinter layers added afterwards. Keeping the native target clear also means faction zombies cannot reach the shipped sprint animation condition, the zombie voice parameter, or the sprinter trip roll, since the engine derives all three from that field; the mod supplies its own equivalents where it needs them.
 
 ## Evidence
 

@@ -2,8 +2,12 @@
 
 Status: Core question answered. Faction sprinters reach and sustain native sprint
 locomotion with the native target held clear, measured at 2.5–2.8 times a same-run
-shambler control in v0.0.41. Open questions 1, 2, 3 and 6 are resolved; question 4
-turned out to be the real remaining problem and is now the blocker.
+shambler control in v0.0.41. Open questions 1, 2, 3, 4 and 6 are resolved; question 4
+exposed the close-range convergence failure, which v0.0.42 braking addressed and a
+run confirmed. Remaining gaps are listed in [`../ROADMAP.md`](../ROADMAP.md): the
+shortened `2.00` brake is assumed rather than measured, the crawler and sitting cases
+are thinly sampled at sprint speed, and the sprinter-versus-player regression has not
+been run.
 Target: Project Zomboid Build 42.20.x
 Implementation: v0.0.40–v0.0.41
 
@@ -178,11 +182,13 @@ should already select a shipped sprint node without any mod asset at all. That
 prediction has never been tested, because this repository has never had a way to make
 a spawned zombie a sprinter.
 
-**This repository has no sprinter assignment path.** There is no speed selector in the
-Horde Spawner extension, no `doZombieSpeed` call in the server harness, and no speed
-sandbox option. The spawn-speed dropdown described in the prior attempts was never
-committed here. Sprinters currently only exist if the server's global sandbox speed
-setting produces them.
+**At the time of writing this repository had no sprinter assignment path at all.**
+There was no speed selector in the Horde Spawner extension, no `doZombieSpeed` call in
+the server harness, and no speed sandbox option; the spawn-speed dropdown described in
+the prior attempts was never committed here, so sprinters could only exist if the
+server's global sandbox speed setting produced them. That is why scope item 1 below
+exists. Both the server-side assignment and the spawner selector landed in v0.0.40 and
+have since assigned 2,098 zombies without a failure.
 
 **Two collateral findings worth recording:**
 
