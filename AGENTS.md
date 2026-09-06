@@ -32,8 +32,8 @@
 
 ## Verification expectations
 
-- Keep `VERSION` and both `mod.info` versions aligned.
-- Use [`scripts/pretest-setup.ps1`](scripts/pretest-setup.ps1) and [`scripts/posttest-cleanup.ps1`](scripts/posttest-cleanup.ps1) for the mod-deploy/log-clear/log-capture steps around a test run; see [`scripts/README.md`](scripts/README.md).
+- Keep `VERSION`, both `mod.info` versions, and the "Current version" line in [`README.md`](README.md) aligned. The README drifted four versions behind because earlier checks covered only the first three.
+- Use [`scripts/pretest-setup.ps1`](scripts/pretest-setup.ps1) and [`scripts/posttest-cleanup.ps1`](scripts/posttest-cleanup.ps1) for the mod-deploy and log-capture steps around a test run; see [`scripts/README.md`](scripts/README.md). Neither clears logs: the game archives each session into a dated `logs_<date>` folder at startup, so the post-test zips accumulate history and the repo's `Logs/` folder is cleared by hand.
 - Update the repeatable procedure in `docs/TESTING.md` with runtime-test changes.
 - Record observed outcomes only after a real run in `docs/VALIDATION_HISTORY.md`; retain bounded experimental detail in `docs/spikes/`.
 - Check staged changes for private logs/data, saves, extracted assets, and unrelated files before committing.
