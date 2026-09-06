@@ -10,10 +10,25 @@ Run before starting the server and client:
 
 - Mirrors [`Contents/mods/pz-zombie-factions/`](../Contents/mods/pz-zombie-factions/)
   into the local PZ client mods folder (`%USERPROFILE%\Zomboid\mods\pz-zombie-factions`).
-- Clears the local client `Logs` folder and `console.txt` so the next run
-  starts clean.
 - If `scripts/.env.server` exists and is filled in (see below), also mirrors
-  the mod to the remote test server and clears its `Logs` folder over SFTP.
+  the mod to the remote test server over SFTP.
+
+It no longer clears logs on either side, and that removal was deliberate.
+
+Project Zomboid archives its own logs. At startup it sweeps the previous
+session's files out of the `Logs` folder into a dated `logs_<date>` subfolder,
+and every file it writes is named after that session's startup timestamp, so
+runs were never at risk of bleeding into each other. Clearing beforehand did not
+buy separation — it destroyed the archive, because the engine's archiver returns
+immediately when it finds an empty folder. The test server therefore accumulated
+no `logs_<date>` history at all, while an ordinary production server builds one
+folder per day. The clearing was also recursive on the client side, so it would
+strip files back out of any archive folder that did manage to form.
+
+The cost of leaving logs in place is that `posttest-cleanup.ps1` copies both
+sides recursively, so each zip now carries the accumulated history rather than a
+single session and grows run over run. Clear the repo's `Logs/` folder by hand
+when that becomes inconvenient.
 
 ## `posttest-cleanup.ps1`
 
@@ -84,9 +99,7 @@ mod, deleting server logs) and `posttest-cleanup.ps1`'s download path
 (listing + downloading real logs, now recursively) have each completed a
 real run without incident.
 
-One quirk observed in that run: `pretest-setup.ps1`'s final `rm` on the
-remote console log exits nonzero (curl exit 21) whenever that file doesn't
-already exist — which is normal, since the server recreates it fresh on
-startup. Read that exit code as "already absent," not as a failure; the
-script doesn't check `$LASTEXITCODE` after that call, so it still completes
-the rest of its work either way.
+An earlier quirk no longer applies: `pretest-setup.ps1` used to finish with an
+SFTP `rm` on the remote console log, which returned curl exit 21 whenever that
+file was already absent. Both the log clearing and that call are gone, so the
+script now exits zero on a normal run.
