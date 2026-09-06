@@ -1,8 +1,10 @@
 # SPIKE-005 — Sprinter locomotion during faction pursuit
 
-Status: v0.0.40 passed its first runtime test operationally; v0.0.41 corrects two
-diagnostics that left the result unproven by measurement. Open questions 1, 2, 3 and 6
-are resolved. Target: Project Zomboid Build 42.20.x
+Status: Core question answered. Faction sprinters reach and sustain native sprint
+locomotion with the native target held clear, measured at 2.5–2.8 times a same-run
+shambler control in v0.0.41. Open questions 1, 2, 3 and 6 are resolved; question 4
+turned out to be the real remaining problem and is now the blocker.
+Target: Project Zomboid Build 42.20.x
 Implementation: v0.0.40–v0.0.41
 
 ## Question
@@ -312,11 +314,36 @@ Mixed-crowd and 4v4 runs come after the isolated matrix passes, not instead of i
    one.** Speed assignment verified on the server for all 2,098 zombies across 23
    spawns, and the owner-side sprint probe reported sprinter walk types during
    pursuit. Nothing rewrote them.
-4. **What is a sprinter's real per-controller-pass displacement**, and how does it
-   compare to the 0.65 → 0.50 authorization band? This determines whether the
-   controller interval, the band, or the approach offsets need to change — and whether
-   [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10) must be fixed
-   before sprinters can pass at all.
+4. ~~**What is a sprinter's real per-controller-pass displacement?**~~ **Resolved, and
+   it is the remaining blocker.** Measured at 3.3–3.5 tiles/second, a sprinter advances
+   0.33–0.35 tiles per 10 Hz controller pass and a converging pair closes 0.66–0.70.
+   The entire `ENGAGEMENT_DISTANCE` 1.20 to `CONTACT_DISTANCE` 0.50 band is 0.70 tiles
+   wide, and melee authorization requires a pass that observes the pair at
+   `MELEE_COMMITMENT_DISTANCE` 0.65 or nearer. A converging sprinter pair can therefore
+   cross the whole band between two consecutive passes and never be observed inside the
+   authorizing window, where a shambler at 0.05 tiles per pass gets roughly fourteen
+   observations inside it — a ratio of about thirteen to one.
+
+   Compounding this, sprint intent is only cleared once `enterEngagement` runs at
+   contact distance, so a sprinter approaches at full speed until the moment it is
+   supposed to already be stopping. There is no deceleration phase.
+
+   The v0.0.41 run reproduced the consequence directly: an isolated sprinter pair held
+   3.3–3.5 tiles/second for three consecutive windows, then dropped to 0.017 while
+   still holding sprint intent, and only resolved when a third zombie arrived. The
+   operator observed repeated overshoot and circling. This is
+   [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10) amplified by
+   speed rather than a new defect.
+
+   The indicated correction is a sprinter-only braking distance, well outside the
+   engagement band, at which sprint intent is cleared so the final approach is made at
+   walking speed. That leaves the shared 1.20 / 0.65 / 0.50 constants behaving for a
+   sprinter exactly as they already do for a shambler, and cannot affect non-sprinters.
+   Sizing needs measurement rather than arithmetic: the walk node blends in over about
+   0.35 seconds, during which a converging pair still covers roughly 1.4 tiles, so a
+   braking distance near 2.5 tiles is the starting estimate. Any attempt should record
+   the distance at which sprint was cleared and the distance at first melee
+   authorization, so the value is tuned from evidence.
 5. **Do the 24 approach-offset slots still make sense at sprint speed?** They exist to
    reduce clumping; at higher closure they may cause orbiting.
 6. ~~**Does the shipped sprinter trip calculation run during targetless pursuit?**~~
@@ -375,6 +402,29 @@ against 39 successes. The same release affected every zombie in that phase regar
 of speed, and appears in the preceding v0.0.39 run. Tracked as
 [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11); one zombie is
 not enough to clear speed type `2` outright.
+
+### Version 0.0.41 measured result
+
+With the v0.0.40 diagnostic flaws corrected, the run produced the comparison the
+earlier build could not. Sprinters measured 3.19–3.63 tiles/second during isolated
+pursuit against a same-run shambler control at 0.25–1.09, and 1.0–2.1 against
+0.41–0.82 under mass combat, where crowding slows everything. The windows carrying
+hundreds of samples in both buckets put sprinters consistently 2.5–2.8 times faster.
+
+`sprintNodeLoopsPerSecond` held between 0.6 and 1.6, clustering near 1.2, and read
+zero only in windows where no sprinter was active. That establishes the mod-owned
+`walktoward` node actually wins selection against the shipped `sprintWalk*` variants,
+which was the primary implementation risk recorded against open question 2.
+
+Damage authority was unaffected at sprinter speed: 667 requests, 466 dispatched, 464
+accepted, `damageProfileRejected=0`, `damageConfigMismatch=0`. Attack selection stayed
+posture-based, with 473 standing bites, six stomps and five crawler lunges. Those last
+two counts are too small to regression-test the crawler and sitting profiles at
+sprinter speed, so that part of the acceptance matrix remains open.
+
+The full eight-minute client log survived, the first sprinter run to manage it, after
+the pre-test log clearing was removed and the real in-place size limit was recorded in
+[`../TESTING.md`](../TESTING.md).
 
 ## Relationship to existing work
 
