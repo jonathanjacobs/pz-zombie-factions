@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.44 — 2026-09-06
+
+Shortens the sprinter braking runway again on operator judgement.
+
+- reduces `SPRINT_BRAKE_DISTANCE` from `2.00` to `1.75`. The v0.0.43 run measured the brake landing at `1.66`, melee authorisation at an average pair distance of `0.50`, and `sprintOvershoots=0` with the corrected counter, so braking is doing its job; the runway still reads as longer than it needs to be in play.
+- authorisation is now arriving at the bottom of the `0.50`–`0.65` commitment band, so there is less headroom than the clean counters suggest. A falling `sprintMeleeAuths` or a rising `sprintOvershoots` in the next run would mean this has gone too far.
+
 ## 0.0.43 — 2026-09-06
 
 Shortens the validated sprinter braking runway and corrects the overshoot counter.

@@ -37,14 +37,20 @@ local TRAVEL_PRUNE_INTERVAL_PASSES = 50
 -- Because the brake fires on the first pass at or inside this distance and a
 -- converging pair closes ~0.68 tiles per pass, the observed brake landed at
 -- 2.08-2.33 rather than at the constant itself. Shortened to 2.00 on operator
--- judgement that the deceleration runway looked longer than it needed to be,
--- which should put the observed brake near 1.3-2.0.
-local SPRINT_BRAKE_DISTANCE = 2.00
+-- judgement that the deceleration runway looked longer than it needed to be.
+--
+-- The v0.0.43 run at 2.00 measured the brake landing at 1.66, melee authorisation
+-- at 0.50, and zero overshoots, so braking is working. Shortened again to 1.75 on
+-- the same judgement, which should put the observed brake near 1.4. Note that
+-- authorisation is already arriving at the bottom of the 0.50-0.65 commitment
+-- band, so there is less headroom left than the clean counters suggest: if
+-- sprintMeleeAuths falls or sprintOvershoots rises, this has gone too far.
+local SPRINT_BRAKE_DISTANCE = 1.75
 
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.43")
+print("[ZombieFactions] Client target observer loaded v0.0.44")
 
 local function print(message)
     CombatController.detail(message)
