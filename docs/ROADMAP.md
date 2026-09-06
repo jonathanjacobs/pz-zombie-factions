@@ -19,6 +19,7 @@ The validated diagnostic combat route is not yet normal gameplay behavior. The n
 
 - [ ] Validate the v0.0.37 standing-to-sitting stomp, accepted damage, native get-up transition, and subsequent standing behavior.
 - [ ] Validate the v0.0.36 crawler combat matrix: crawler-to-crawler lunge, crawler-to-standing lunge, standing-to-crawler stomp, ordinary crawler-to-player regression, and standing-to-standing regression ([SPIKE-004](spikes/SPIKE-004-crawler-combat-profiles.md)).
+- [ ] Add server-authoritative zombie speed assignment, then establish and validate sprinter locomotion during faction pursuit without reintroducing a native zombie target ([SPIKE-005](spikes/SPIKE-005-sprinter-locomotion.md)). No sprinter assignment path exists yet, and [#6](https://github.com/jonathanjacobs/pz-zombie-factions/issues/6), [#8](https://github.com/jonathanjacobs/pz-zombie-factions/issues/8), and [#9](https://github.com/jonathanjacobs/pz-zombie-factions/issues/9) are deferred behind this work.
 - [ ] Validate the Red/Blue/Vanilla relationship matrix, including expected Neutral behavior.
 - [ ] Profile client FPS and server load at mob size `8`, then test larger mobs only if the evidence supports it.
 - [ ] Validate two-client attacker/defender ownership separation, real ownership transfer, save/restart, and relevance lifecycle transitions.
