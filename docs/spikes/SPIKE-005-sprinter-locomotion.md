@@ -1,6 +1,7 @@
 # SPIKE-005 — Sprinter locomotion during faction pursuit
 
-Status: Draft — scope proposal, not yet implemented
+Status: Draft — scope proposal, not yet implemented. Open question 1 resolved
+from archived logs; the resolution reversed this document's original prediction.
 Target: Project Zomboid Build 42.20.x
 Implementation: none in this repository (`VERSION` 0.0.39)
 
@@ -33,10 +34,11 @@ Sprinting is different in three ways:
 1. **No mod-owned entry point exists.** The relevant condition variable is computed
    by the engine, not stored, so no `setVariable()` write can select the vanilla
    sprint node in the pursuit action state the mod currently uses.
-2. **The animation is not cosmetic.** Zombie movement during pathfinding is driven by
-   animation root motion. The selected node *is* the speed. There is no separate
-   speed field to set, which is why every flag-writing approach so far has produced
-   correct-looking counters and unchanged movement.
+2. **The animation is not cosmetic.** The pursuit state contributes facing and
+   direction only; translation comes from animation root motion. The selected node
+   *is* the speed. There is no separate speed field to set, which is why every
+   flag-writing approach so far has produced correct-looking counters and unchanged
+   movement.
 3. **It changes approach timing for every existing profile.** Faster closure
    interacts with the contact envelope, the melee-commitment gate, the impact
    cooldown, and the controller's 6-tick update interval — all of which were tuned
@@ -58,12 +60,15 @@ Recorded result: speed type verified as `1` and unchanged; running samples
 positive in every sample and non-running samples zero; measured travel still roughly
 0.2–1.3 tiles/second; visibly shambling.
 
-Why it failed: the running flag is not an input to locomotion. The shipped
-pathfinding behavior rewrites it every frame from the *global* sandbox zombie-speed
-setting, ignoring per-zombie speed type. On a shambler-default server it is
-therefore forced back to `false` each frame regardless of the write, and even when
-`true` it selects nothing. The counter that was supposed to prove the fix could only
-ever measure the mod's own write.
+Why it failed: the running flag is not an input to locomotion, and both shipped
+pursuit states clear it every frame. The walk-toward state assigns it `false`
+unconditionally on each execute; the pathfinding behavior rewrites it from the
+*global* sandbox zombie-speed setting, ignoring per-zombie speed type, so on a
+shambler-default server it is forced back to `false` there too. Even held `true` it
+selects nothing. A speed helper that would hard-set a sprinter's travel speed does
+exist on the zombie class but is not called anywhere in this build, so no per-zombie
+speed override is in play at all. The counter that was supposed to prove the fix could
+only ever measure the mod's own write.
 
 ### Attempt B — mod-owned sprint animation nodes
 
@@ -86,11 +91,11 @@ Why it failed, in order:
    "has a native target, or is reacting to a sound source that is not a zombie."
    Faction pursuit deliberately holds the native target clear, and the enemy is a
    zombie, so both alternatives are closed by construction.
-3. `walktoward` is very likely the wrong action state anyway — see below.
-
 The follow-up recommendation (standalone, non-inheriting nodes with `intrees=false`
 and matching walk types) was implemented but never validated, and is not in this
-repository.
+repository. Measurement has since confirmed that attempt B chose the correct
+animation set; only its inheritance mechanism and its choice of condition were
+wrong. That recommendation is now the leading candidate.
 
 ### What the two attempts have in common
 
@@ -111,24 +116,51 @@ sprinter run must still separate "did not sprint" from "was never controlled."
 Derived from the installed Build 42.20.x asset files and shipped API surface. No
 decompiled material is reproduced here.
 
-**The pursuit route uses the `pathfind` action state, not `walktoward`.**
-`pathToLocationF()` drives the shipped pathfinding behavior; `walktoward` is the
-native target-chasing state the mod avoids. The mod's own logs already print
-`getRealState()` but no recorded run has been read for which state was actually
-active.
+**Measured: faction pursuit animates in `walktoward`, not `pathfind`.** Three archived
+one-client dedicated-server sessions were re-read for the `state=` field the mod
+already records. Across `phase=coordinate-pursuit` lines, every one of which also
+recorded `targetClear=true`, the animator state was `walktoward` in 3,322 samples,
+`idle` in 859, `bumped` in 761, and `pathfind` in only 131. The independent
+`CLIENT_OBSERVER` sampling agrees: `controlMode=pursuit` gave 1,652 `walktoward`
+against 82 `pathfind`, and `controlMode=contact-closing` gave 1,413 against 16.
 
-**The shipped `pathfind` animation set already contains targetless sprint nodes.**
-`media/AnimSets/zombie/pathfind/` ships `sprintPathfind1`–`sprintPathfind5`. Their
-conditions are only:
+Two checks make those counts load-bearing. The reported state is derived from the
+animator's current state name, not from a lagging network guess; and the enum it
+passes through falls back to `idle` for any unrecognised name, so `walktoward` can
+only appear when the animator is literally in `walktoward`. The `idle` counts are
+correspondingly ambiguous and should not be relied on. The shipped animator
+transition from `pathfind` to `walktoward` fires on `bPathfind` false with `bMoving`
+true, which is reachable from the pathfinding behavior's own variable writes; the AI
+state and the animator state therefore need not agree, and it is the animator state
+that selects the node.
 
-- `bMoving = true`
-- `intrees = false`
-- `zombieWalkType = sprint1` … `sprint5`
+**Consequence: the `walktoward` animation set governs node selection during pursuit,**
+and its sprint nodes carry the target-derived condition described above. That
+condition cannot be satisfied while the native target is held clear against a zombie
+enemy. This closes the cheapest possible route.
 
-There is **no** target condition and **no** `shouldSprint` condition on these nodes.
-This is the material difference from the `walktoward` sprint nodes, which do carry the
-target-derived condition, and it is the reason both prior attempts were aimed at the
-wrong asset folder.
+**The same set explains the observed behavior exactly.** `media/AnimSets/zombie/walktoward/`
+also ships `sprintWalk1`–`sprintWalk5`: the same walk types as the sprint nodes, with
+the sprint condition inverted, playing `Zombie_Walk`. A speed-type-`1` faction zombie
+in `walktoward` with the sprint condition false selects precisely these. That is a
+complete mechanical explanation for "sprinters shamble toward each other but sprint at
+players," and it means no amount of speed-type or flag correction can change the
+outcome on its own.
+
+**A mod-owned node in `walktoward` remains available.** The shipped sprint nodes there
+match on the sprint condition, `intrees`, and walk type. A standalone node matching on
+`intrees`, walk type, and one mod-owned pursuit variable carries the same number of
+conditions as `sprintWalk*` plus one, which is the mechanism by which it would be
+selected instead. Whether node selection actually resolves that way, and whether an
+explicit priority is needed, is unverified.
+
+**The `pathfind` set would not have needed this.** `media/AnimSets/zombie/pathfind/`
+ships `sprintPathfind1`–`sprintPathfind5` gated only on `bMoving`, `intrees`, and walk
+type, with no target condition at all. This document originally predicted that pursuit
+ran there and that sprinting would therefore already work. The measurement above
+disproves that. It is recorded here only so the possibility is not re-proposed:
+holding the zombie in the pathfinding animator state for the whole approach is a
+distinct and much larger change, not a shortcut.
 
 **`zombieWalkType` is settable through the shipped API.** It is a read-only animation
 variable backed by a normal field with public `getWalkType()` / `setWalkType(String)`
@@ -203,12 +235,16 @@ something new. Actual per-pass displacement must be measured, not assumed.
    `4` random, plus "use sandbox speed" as the default. Without this there is nothing
    to test.
 2. Read-only pursuit instrumentation that records engine outcome rather than mod
-   intent: action state, walk type, `bMoving`, planar displacement per second, and a
-   shambler control measured the same way in the same run.
-3. Only if instrumentation shows the shipped sprint node is not selected: one mod-owned,
-   non-inheriting animation node set under `media/AnimSets/zombie/pathfind/`, matching
-   the shipped sprint conditions plus a mod-owned pursuit variable, with no
-   `x_extends`, no priority override, and no animation-emitted diagnostic variables.
+   intent: walk type as held by the owning client, `intrees`, `bMoving`, planar
+   displacement per second, and a shambler control measured the same way in the same
+   run. Action state is already answered and needs only a cheap confirmation that it
+   has not changed.
+3. One mod-owned animation node set under `media/AnimSets/zombie/walktoward/`, selected
+   by walk type, `intrees`, and a single mod-owned pursuit variable the owning client
+   sets and clears. No `x_extends`, no inheritance from shipped nodes, no
+   animation-emitted diagnostic variables, and no reuse of the shipped sprint
+   condition. An explicit priority is added only if selection testing shows condition
+   count alone does not beat `sprintWalk*`.
 4. Whatever close-range timing correction the measured displacement proves necessary
    for a sprinter to obtain melee authorization reliably — bounded to the pursuit and
    authorization path, not to damage authority.
@@ -234,9 +270,10 @@ something new. Actual per-pass displacement must be measured, not assumed.
 
 ### Sequencing
 
-Steps 1 and 2 ship together as one build and produce a measurement, not a fix. Step 3
-is authored only if step 2 shows the shipped node is not being selected. Step 4 is
-sized from step 2's numbers. Each step ends in a recorded run before the next begins.
+Steps 1, 2 and 3 ship together as one build: the animation node is no longer
+conditional, because the shipped node is now known not to be selectable. Step 4 is
+sized from step 2's measured numbers rather than guessed in advance. Each step ends in
+a recorded run before the next begins.
 
 ## Acceptance matrix
 
@@ -263,16 +300,19 @@ Mixed-crowd and 4v4 runs come after the isolated matrix passes, not instead of i
 
 ## Open questions
 
-1. **Which action state does faction pursuit actually occupy?** Predicted `pathfind`.
-   If it is `walktoward`, the whole approach changes and the target-derived sprint
-   condition becomes unavoidable. This is the first thing to read out of a log.
-2. **Does a locally owned speed-type-`1` zombie already select `sprintPathfind*` while
-   coordinate-pursuing?** If yes, no mod animation asset is needed at all and the work
-   collapses to assignment plus close-range timing.
+1. ~~**Which action state does faction pursuit actually occupy?**~~ **Resolved:**
+   `walktoward`, by a wide margin, in three archived sessions. See Engine findings. A
+   mod-owned animation node is therefore required, and the shipped sprint nodes are
+   unusable.
+2. **Does a mod-owned `walktoward` node actually win selection against `sprintWalk*`?**
+   The mod node would carry one more matched condition. Whether the shipped selector
+   resolves on condition count, declared priority, or file order is unverified, and
+   this is now the primary implementation risk.
 3. **What walk type does the *owning client* hold?** Speed type reading `1` on the
    client implies a sprint walk type, but the two are set through different paths and
    the network simulator may rewrite walk type from packets. Both must be logged
-   separately, on the owner.
+   separately, on the owner. This is now load-bearing: the mod node is keyed on walk
+   type, so a rewritten walk type would silently disable it.
 4. **What is a sprinter's real per-controller-pass displacement**, and how does it
    compare to the 0.65 → 0.50 authorization band? This determines whether the
    controller interval, the band, or the approach offsets need to change — and whether
