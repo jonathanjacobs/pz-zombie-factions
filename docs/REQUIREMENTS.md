@@ -109,7 +109,9 @@ The mod must not require full-world zombie scans, uncontrolled command traffic, 
 
 ### R19 — Zombie combat must remain within validated authority boundaries
 
-When zombie-to-zombie combat is enabled, it must use server-authorized pair grants, revalidated impacts, and server-finalized lethal outcomes. The project must limit compatibility and feature claims to controlled Build 42 evidence; unvalidated variants must remain explicit test candidates rather than accepted behavior. As of v0.0.43 those include two-client ownership separation, `NEUTRAL` retaliation, burning, knocked-down and fake-dead postures, and the sprinter cases against crawling and sitting defenders that have only been thinly sampled. Standing bites, crawler lunges, standing stomps, sitting get-up and sprinter locomotion have controlled dedicated-server evidence and are recorded in [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md).
+When zombie-to-zombie combat is enabled, it must use server-authorized pair grants, revalidated impacts, and server-finalized lethal outcomes. The project must limit compatibility and feature claims to controlled Build 42 evidence; a variant without such evidence must remain an explicit test candidate rather than accepted behavior.
+
+Which variants those are changes as testing proceeds, so this requirement does not list them. [`VALIDATION_HISTORY.md`](VALIDATION_HISTORY.md) records what has controlled dedicated-server evidence and what that evidence does and does not establish; anything not recorded there is unvalidated by definition. Outstanding work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
 ## Scope separation
 
