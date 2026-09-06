@@ -20,6 +20,7 @@ local HOSTILE = ZombieFactions.Relationship.HOSTILE
 local PROFILE_STANDING_BITE = "STANDING_BITE"
 local PROFILE_CRAWLER_LUNGE = "CRAWLER_LUNGE"
 local PROFILE_STANDING_STOMP = "STANDING_STOMP"
+local SPEED = ZombieFactions.SpeedType
 
 local VALIDATION_DELAY_TICKS = 30
 local VALIDATION_SAMPLE_LIMIT = 10
@@ -81,7 +82,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.39 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.40 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -353,6 +354,36 @@ local function isZombieAttackingTarget(zombie, target)
         return zombie:isZombieAttacking(target)
     end)
     return ok and attacking == true
+end
+
+-- Server-authoritative speed assignment. `speedType` uses the shipped selectors
+-- in ZombieFactions.SpeedType; SANDBOX leaves the engine's own choice alone.
+-- Returns applied, resolvedSpeedType, reason. The engine derives the matching
+-- walk type as a side effect, which is what actually selects locomotion.
+function ZombieFactions.setZombieSpeedType(zombie, speedType)
+    if not zombie then return false, nil, "missing-zombie" end
+
+    speedType = tonumber(speedType)
+    if speedType == nil or speedType == SPEED.SANDBOX then
+        return false, nil, "sandbox-default"
+    end
+    if speedType ~= SPEED.SPRINTER
+        and speedType ~= SPEED.FAST_SHAMBLER
+        and speedType ~= SPEED.SHAMBLER
+        and speedType ~= SPEED.RANDOM
+    then
+        return false, nil, "unsupported-speed-type"
+    end
+    if zombie.doZombieSpeed == nil then
+        return false, nil, "speed-api-unavailable"
+    end
+
+    local applied = pcall(function() zombie:doZombieSpeed(speedType) end)
+    if not applied then return false, nil, "speed-call-failed" end
+
+    -- RANDOM resolves to a concrete speed, so read back rather than assume.
+    local okRead, resolved = pcall(function() return zombie:getSpeedType() end)
+    return true, okRead and tonumber(resolved) or nil, "applied"
 end
 
 local function spawnOne(args, x, y, z)
@@ -2185,10 +2216,15 @@ local function handleSpawn(player, args)
         return
     end
 
+    local requestedSpeed = boundedInteger(args.spawnSpeed, 0, 4, SPEED.SANDBOX)
+
     local runId = nextTestRunId()
     local spawnedCount = 0
     local immediateVerified = 0
     local validationSampled = 0
+    local speedApplied = 0
+    local speedFailed = 0
+    local speedVerified = 0
     local probeSubjects = {}
 
     for _ = 1, count do
@@ -2196,6 +2232,35 @@ local function handleSpawn(player, args)
         local sy = radius > 0 and ZombRand(y - radius, y + radius + 1) or y
         local zombie = spawnOne(args, sx, sy, z)
         if zombie then
+            if requestedSpeed ~= SPEED.SANDBOX then
+                local ok, resolvedSpeed, speedReason = ZombieFactions.setZombieSpeedType(zombie, requestedSpeed)
+                if ok then
+                    speedApplied = speedApplied + 1
+                    -- RANDOM legitimately resolves to something else; every other
+                    -- selector must read back as the value that was requested.
+                    if requestedSpeed == SPEED.RANDOM or resolvedSpeed == requestedSpeed then
+                        speedVerified = speedVerified + 1
+                    else
+                        print(string.format(
+                            "[ZombieFactions][%s][SPEED] phase=immediate onlineID=%d requested=%d resolved=%s ok=false",
+                            runId,
+                            zombieOnlineId(zombie),
+                            requestedSpeed,
+                            tostring(resolvedSpeed)
+                        ))
+                    end
+                else
+                    speedFailed = speedFailed + 1
+                    print(string.format(
+                        "[ZombieFactions][%s][SPEED] phase=immediate onlineID=%d requested=%d reason=%s ok=false",
+                        runId,
+                        zombieOnlineId(zombie),
+                        requestedSpeed,
+                        tostring(speedReason)
+                    ))
+                end
+            end
+
             local assigned = ZombieFactions.assignZombieFaction(zombie, factionId, runId)
             if assigned then
                 spawnedCount = spawnedCount + 1
@@ -2245,7 +2310,7 @@ local function handleSpawn(player, args)
     local probeQueued = #probeSubjects > 0
 
     alwaysPrint(string.format(
-        "[ZombieFactions][%s] spawned=%d requested=%d faction=%s %s assignmentImmediate=%d/%d deferredSamples=%d targetProbeQueued=%s targetProbeMembers=%d targetProbeLeaderActions=%d zombieMobSize=%d recruitmentRadius=%d",
+        "[ZombieFactions][%s] spawned=%d requested=%d faction=%s %s assignmentImmediate=%d/%d deferredSamples=%d spawnSpeed=%d speedApplied=%d speedVerified=%d speedFailed=%d targetProbeQueued=%s targetProbeMembers=%d targetProbeLeaderActions=%d zombieMobSize=%d recruitmentRadius=%d",
         runId,
         spawnedCount,
         count,
@@ -2254,6 +2319,10 @@ local function handleSpawn(player, args)
         immediateVerified,
         spawnedCount,
         validationSampled,
+        requestedSpeed,
+        speedApplied,
+        speedVerified,
+        speedFailed,
         tostring(probeQueued),
         #probeSubjects,
         probeQueuedCount,
@@ -2270,6 +2339,10 @@ local function handleSpawn(player, args)
         fromVanilla = effectiveFrom,
         assignmentImmediate = immediateVerified,
         validationSampled = validationSampled,
+        spawnSpeed = requestedSpeed,
+        speedApplied = speedApplied,
+        speedVerified = speedVerified,
+        speedFailed = speedFailed,
         targetProbeQueued = probeQueued,
         targetProbeSubjects = #probeSubjects,
         targetProbeLeaderActions = probeQueuedCount,

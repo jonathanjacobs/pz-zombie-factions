@@ -45,7 +45,7 @@ local processedOwnerHits = {}
 local processedOwnerHitOrder = {}
 local activeHitReactions = {}
 
-print("[ZombieFactions] Client impact probe loaded v0.0.39")
+print("[ZombieFactions] Client impact probe loaded v0.0.40")
 
 local function print(message)
     CombatController.detail(message)

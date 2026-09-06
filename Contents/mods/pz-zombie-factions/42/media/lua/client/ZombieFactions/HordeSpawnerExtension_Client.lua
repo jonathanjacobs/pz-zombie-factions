@@ -6,11 +6,12 @@ local VANILLA = ZombieFactions.Faction.VANILLA
 local TEST_RED = ZombieFactions.Faction.TEST_RED
 local TEST_BLUE = ZombieFactions.Faction.TEST_BLUE
 local REL = ZombieFactions.Relationship
+local SPEED = ZombieFactions.SpeedType
 
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.39")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.40")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -103,7 +104,7 @@ function ISSpawnHordeUI:createChildren()
     local fontHeight = getTextManager():getFontHeight(UIFont.Small)
     local rowHeight = fontHeight + 6
     local spacing = 10
-    local extraHeight = (rowHeight + spacing) * 5
+    local extraHeight = (rowHeight + spacing) * 6
     local x = 11
     local y = self.healthSlider:getBottom() + spacing
 
@@ -121,6 +122,19 @@ function ISSpawnHordeUI:createChildren()
     self.zfFaction:addOptionWithData("Vanilla (zf:vanilla)", VANILLA)
     self.zfFaction:addOptionWithData("Test Red (zf:test-red)", TEST_RED)
     self.zfFaction:addOptionWithData("Test Blue (zf:test-blue)", TEST_BLUE)
+
+    y = y + rowHeight + spacing
+    self.zfSpeedLabel = ISLabel:new(x, y, rowHeight, "Spawn speed:", 1, 1, 1, 1, UIFont.Small, true)
+    self:addChild(self.zfSpeedLabel)
+
+    self.zfSpeed = ISComboBox:new(self.zfSpeedLabel:getRight() + spacing, y, 180, rowHeight)
+    self.zfSpeed:initialise()
+    self:addChild(self.zfSpeed)
+    self.zfSpeed:addOptionWithData("Use sandbox speed", SPEED.SANDBOX)
+    self.zfSpeed:addOptionWithData("1 - Sprinter", SPEED.SPRINTER)
+    self.zfSpeed:addOptionWithData("2 - Fast Shambler", SPEED.FAST_SHAMBLER)
+    self.zfSpeed:addOptionWithData("3 - Shambler", SPEED.SHAMBLER)
+    self.zfSpeed:addOptionWithData("4 - Random", SPEED.RANDOM)
 
     y = y + rowHeight + spacing
     self.zfToVanillaLabel = ISLabel:new(x, y, rowHeight, "Spawned faction -> Vanilla:", 1, 1, 1, 1, UIFont.Small, true)
@@ -187,6 +201,7 @@ local function buildFactionSpawnArgs(self, factionId)
         health = self.healthSlider:getCurrentValue(),
         heightOffset = self:getHeightOffset(),
         factionId = factionId,
+        spawnSpeed = selectedData(self.zfSpeed) or SPEED.SANDBOX,
         toVanilla = selectedData(self.zfToVanilla) or REL.FRIENDLY,
         fromVanilla = selectedData(self.zfFromVanilla) or REL.FRIENDLY,
         symmetric = self.zfSymmetric.selected[1] == true,
@@ -196,8 +211,16 @@ end
 
 function ISSpawnHordeUI:onSpawn()
     local factionId = selectedData(self.zfFaction) or VANILLA
+    local spawnSpeed = selectedData(self.zfSpeed) or SPEED.SANDBOX
 
-    if factionId == VANILLA and self.zfTargetProbe.selected[1] ~= true then
+    -- Vanilla spawning is preserved only when nothing on this panel asks for
+    -- harness behavior. An explicit speed selection needs the harness too,
+    -- because the vanilla route creates zombies asynchronously and gives us no
+    -- handle to apply the speed to.
+    if factionId == VANILLA
+        and spawnSpeed == SPEED.SANDBOX
+        and self.zfTargetProbe.selected[1] ~= true
+    then
         return originalOnSpawn(self)
     end
 
@@ -226,7 +249,7 @@ local function onServerCommand(module, command, args)
 
     if args.ok then
         print(string.format(
-            "[ZombieFactions][%s] %s: spawned %s/%s as %s assignmentImmediate=%s/%s deferredSamples=%s targetProbeQueued=%s targetProbeMembers=%s targetProbeLeaderActions=%s recruitmentRadius=%s",
+            "[ZombieFactions][%s] %s: spawned %s/%s as %s assignmentImmediate=%s/%s deferredSamples=%s spawnSpeed=%s speedApplied=%s speedVerified=%s speedFailed=%s targetProbeQueued=%s targetProbeMembers=%s targetProbeLeaderActions=%s recruitmentRadius=%s",
             tostring(args.runId or "SPIKE001"),
             tostring(args.message or "spawn complete"),
             tostring(args.spawned or "?"),
@@ -235,6 +258,10 @@ local function onServerCommand(module, command, args)
             tostring(args.assignmentImmediate or "?"),
             tostring(args.spawned or "?"),
             tostring(args.validationSampled or "?"),
+            tostring(args.spawnSpeed or "?"),
+            tostring(args.speedApplied or 0),
+            tostring(args.speedVerified or 0),
+            tostring(args.speedFailed or 0),
             tostring(args.targetProbeQueued == true),
             tostring(args.targetProbeSubjects or 0),
             tostring(args.targetProbeLeaderActions or 0),

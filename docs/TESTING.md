@@ -115,6 +115,55 @@ Before each spawn, explicitly clear posture options left from the preceding case
 
 As a failure-path check, repeat once with a sitting defender that does not stand. Require `sittingGetupLocksExpired` to increase after approximately three seconds and confirm that another stomp can then be attempted; the lock must not permanently strand the attacker.
 
+## Version 0.0.40 sprinter locomotion matrix
+
+Version 0.0.40 adds a "Spawn speed" selector to the Horde Spawner. Its values are the
+shipped selectors: `1` sprinter, `2` fast shambler, `3` shambler, `4` random, plus a
+"Use sandbox speed" default that applies nothing. Selecting any explicit speed routes
+the spawn through the harness even for the Vanilla faction, because the vanilla
+asynchronous spawn returns no handle to apply a speed to.
+
+Use mob size `1`, the accepted `0.80` client / `1.60` server distances, clear level
+outdoor ground, and a spawn radius of 2–3 rather than 0 so the pair does not stack.
+Clear posture options left over from a previous case before every spawn. Confirm each
+spawn reports `speedApplied` and `speedVerified` equal to the requested count with
+`speedFailed=0` before drawing any conclusion from the run.
+
+The decisive evidence is the `[ZombieFactions][SPRINT_PERF]` line, not visual
+impression. `sprintTilesPerSecond` must be materially above `shamblerTilesPerSecond`
+measured in the same run, with both sample counts non-trivial. `sprintNodePlayedSamples`
+must dominate `sprintNodeMissingSamples`, which is what separates "the mod asked for a
+sprint" from "the game actually played one". Require `sprintVariableErrors=0`
+throughout.
+
+Run these cases separately, capturing logs per phase with
+[`../scripts/snapshot-client-log.ps1`](../scripts/snapshot-client-log.ps1):
+
+1. **Sprinter versus shambler.** One speed-`1` Red attacker against one sandbox-speed
+   Vanilla defender, Red-to-Vanilla `HOSTILE` and the reverse `FRIENDLY`. This is the
+   primary locomotion case and the source of the control figure. Confirm a visible
+   sprint during approach, a clean stop at contact, `STANDING_BITE`, and accepted
+   damage.
+2. **Sprinter versus sprinter.** Both sides speed `1`, mutually `HOSTILE`. Expect this
+   case to stress close-range convergence; a stall here that does not appear in case 1
+   belongs to [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10)
+   rather than to locomotion.
+3. **Sprinter versus crawler.** Speed-`1` attacker against an `isCrawler` defender.
+   Require `STANDING_STOMP` selection and accepted damage; the attacker's speed must
+   not change profile selection.
+4. **Sprinter versus sitting defender.** Speed-`1` attacker against an `isSitting`
+   defender. Require the v0.0.37 sequence unchanged: one stomp, get-up lock, native
+   get-up, then `STANDING_BITE` after the lock releases.
+5. **Player regression.** One speed-`1` Vanilla sprinter with the faction probe
+   disabled. Remove invisibility and confirm its ordinary player chase is unchanged.
+   Require `sprintActivations=0` for that phase, since the mod must not be requesting
+   anything.
+
+A faction sprinter will not stumble the way a player-chasing sprinter does. The shipped
+trip roll requires a native target, which faction pursuit deliberately holds clear, so
+its absence is expected behavior in this build rather than a test failure. See
+[`spikes/SPIKE-005-sprinter-locomotion.md`](spikes/SPIKE-005-sprinter-locomotion.md).
+
 ## Issue #1 distance-envelope matrix
 
 Version 0.0.35 exposes two diagnostic sandbox options, both measured in planar tiles:

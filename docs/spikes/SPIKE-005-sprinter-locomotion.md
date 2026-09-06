@@ -1,9 +1,10 @@
 # SPIKE-005 — Sprinter locomotion during faction pursuit
 
-Status: Draft — scope proposal, not yet implemented. Open question 1 resolved
-from archived logs; the resolution reversed this document's original prediction.
+Status: v0.0.40 implemented, awaiting its first runtime test. Open question 1 was
+resolved from archived logs before implementation, and that resolution reversed
+this document's original prediction.
 Target: Project Zomboid Build 42.20.x
-Implementation: none in this repository (`VERSION` 0.0.39)
+Implementation: v0.0.40
 
 ## Question
 
@@ -320,10 +321,20 @@ Mixed-crowd and 4v4 runs come after the isolated matrix passes, not instead of i
    before sprinters can pass at all.
 5. **Do the 24 approach-offset slots still make sense at sprint speed?** They exist to
    reduce clumping; at higher closure they may cause orbiting.
-6. **Does the shipped sprinter trip calculation run during targetless pursuit?** If it
-   does, `ZombieGetUpState` and the trip states must be added to the safety interlock,
-   which currently matches on `fall`, `knock`, `stagger`, `attack`, `lunge`,
-   `hitreaction`, and `death` but not `getup`.
+6. ~~**Does the shipped sprinter trip calculation run during targetless pursuit?**~~
+   **Resolved: no.** The shipped periodic trip roll requires a sprinter speed type, an
+   empty bump type, a non-remote zombie, *and a non-null native target*. Faction
+   pursuit holds the target clear, so the trip can never fire during it. The
+   observable effect is a behavioral gap rather than a defect: faction sprinters will
+   never stumble, while the same zombie chasing a player still will. Reproducing it is
+   inexpensive, because the shipped trip is entered purely by setting a bump type that
+   the mod's presentation layer already writes for bites and stomps. It is deliberately
+   excluded from the first build for two reasons: a random mid-approach stumble would
+   corrupt the tiles-per-second measurement that build exists to produce, and it must
+   not be armed while an attack presentation owns the same bump type. Before adding it,
+   `getup` must join the safety interlock's state matcher, which currently covers
+   `fall`, `knock`, `stagger`, `attack`, `lunge`, `hitreaction`, and `death`. Recorded
+   as follow-up work, not as part of this spike's acceptance.
 7. **Does speed assignment need to survive relevance transitions and restart**, or is
    spawn-time assignment sufficient for this spike? Proposal: spawn-time only here;
    persistence belongs with production enrollment.

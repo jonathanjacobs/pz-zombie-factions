@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.40 — 2026-09-05
+
+Unvalidated sprinter locomotion implementation for the next dedicated-server runtime test ([SPIKE-005](docs/spikes/SPIKE-005-sprinter-locomotion.md)).
+
+- adds server-authoritative `ZombieFactions.setZombieSpeedType()` using the shipped `doZombieSpeed()` route, and a Horde Spawner "Spawn speed" selector for sandbox default, sprinter, fast shambler, shambler, and random; the harness now also handles a Vanilla-faction spawn when a speed is explicitly selected, because the vanilla asynchronous route returns no handle to apply it to;
+- reads the resolved speed back per zombie and reports `spawnSpeed`, `speedApplied`, `speedVerified`, and `speedFailed`, treating the random selector as legitimately resolving to a different value;
+- adds five mod-owned `walktoward` animation nodes mapping the shipped `Zombie_Sprint` clips, matched on the shipped walk type and tree conditions plus one mod-owned pursuit condition, without inheriting from the shipped nodes and without reusing their target-derived sprint condition;
+- has the owning client set that condition only for an upright, engine-classified sprinter under an active pursuit grant, and clear it at contact, safety suspension, player targeting, reacquisition, grant replacement, and release; the mod never writes speed type, walk type, running state, or any shipped movement value;
+- measures planar tiles travelled per second under pursuit control, bucketed by speed class so a shambler in the same run is a directly comparable control, and records whether the mod's animation node actually played rather than only whether the mod requested it;
+- keeps posture-based attack selection unchanged: a standing sprinter still bites, still stomps crawling and sitting defenders, and is still lunged at by crawler attackers.
+
 ## 0.0.39 — 2026-09-05
 
 Unvalidated Horde Spawner first-click fix for [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5).

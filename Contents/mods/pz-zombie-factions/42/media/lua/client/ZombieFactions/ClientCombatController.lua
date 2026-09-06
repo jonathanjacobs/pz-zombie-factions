@@ -115,6 +115,12 @@ local function gauge(name)
     return controller.gauges[name] or 0
 end
 
+local function tilesPerSecond(bucket)
+    local seconds = metric(bucket .. "TravelSeconds")
+    if seconds <= 0 then return 0 end
+    return metric(bucket .. "TravelTiles") / seconds
+end
+
 local function printSummary()
     local trackedTargets = gauge("trackedTargets")
     local trackedImpacts = gauge("trackedImpacts")
@@ -122,6 +128,22 @@ local function printSummary()
         controller.counters = {}
         return
     end
+
+    -- Reported separately from the intent counters below. Measured travel is the
+    -- only evidence that a sprint request changed movement; the shambler figure
+    -- is the control it has to beat in the same run.
+    print(string.format(
+        "[ZombieFactions][SPRINT_PERF] sprintActivations=%d sprintClears=%d sprintVariableErrors=%d sprintNodePlayedSamples=%d sprintNodeMissingSamples=%d sprintTilesPerSecond=%.3f sprintTravelSamples=%d shamblerTilesPerSecond=%.3f shamblerTravelSamples=%d",
+        metric("sprintActivations"),
+        metric("sprintClears"),
+        metric("sprintVariableErrors"),
+        metric("sprintNodePlayedSamples"),
+        metric("sprintNodeMissingSamples"),
+        tilesPerSecond("sprint"),
+        metric("sprintTravelSamples"),
+        tilesPerSecond("shambler"),
+        metric("shamblerTravelSamples")
+    ))
 
     print(string.format(
         "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d clientCollisionDistance=%.2f serverValidationDistance=%.2f controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d nativeZombieTargetsCleared=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d attackPresentationsArmed=%d attackPresentationsSuppressed=%d attackPresentationsExpired=%d crawlerLungesArmed=%d crawlerLungeImpacts=%d stompsArmed=%d stompImpacts=%d sittingStompsArmed=%d sittingStompImpacts=%d attackSoundsPlayed=%d attackSoundsSuppressed=%d stompSoundsPlayed=%d stompSoundsSuppressed=%d crawlerHitReactionsArmed=%d crawlerBiteReactionsArmed=%d sittingDefendersAlerted=%d sittingDefendersStood=%d sittingGetupsExpired=%d sittingGetupLocksArmed=%d sittingGetupAttackPauses=%d sittingGetupLocksReleased=%d sittingGetupLocksExpired=%d attackProfileChanges=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d biteSoundsPlayed=%d biteSoundsSuppressed=%d hitReactionsArmed=%d hitReactionsSuppressed=%d hitReactionsExpired=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d",

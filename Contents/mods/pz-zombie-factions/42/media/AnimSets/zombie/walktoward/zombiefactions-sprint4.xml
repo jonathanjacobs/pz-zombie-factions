@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animNode>
+    <m_Name>zombiefactionsSprint4</m_Name>
+    <m_AnimName>Zombie_Sprint05</m_AnimName>
+    <m_BlendTime>0.35</m_BlendTime>
+    <m_SpeedScale>0.80</m_SpeedScale>
+    <m_randomAdvanceFraction>0.25</m_randomAdvanceFraction>
+    <m_Conditions x_name="4f1c92d8-6a37-4d21-9c8e-2b7f5ae1401">
+        <m_Name>intrees</m_Name>
+        <m_Type>BOOL</m_Type>
+        <m_Value>false</m_Value>
+    </m_Conditions>
+    <m_Conditions x_name="4f1c92d8-6a37-4d21-9c8e-2b7f5ae1402">
+        <m_Name>zombieWalkType</m_Name>
+        <m_Type>STRING</m_Type>
+        <m_Value>sprint4</m_Value>
+    </m_Conditions>
+    <m_Conditions x_name="4f1c92d8-6a37-4d21-9c8e-2b7f5ae1403">
+        <m_Name>ZombieFactionsSprint</m_Name>
+        <m_Type>BOOL</m_Type>
+        <m_Value>true</m_Value>
+    </m_Conditions>
+    <m_Events x_name="4f1c92d8-6a37-4d21-9c8e-2b7f5ae1404">
+        <m_EventName>SetVariable</m_EventName>
+        <m_TimePc>0.05</m_TimePc>
+        <m_ParameterValue>ZombieFactionsSprintPlayed=true</m_ParameterValue>
+    </m_Events>
+    <m_Events x_name="4f1c92d8-6a37-4d21-9c8e-2b7f5ae1405">
+        <m_EventName>Footstep</m_EventName>
+        <m_TimePc>0.15</m_TimePc>
+        <m_ParameterValue>sprint</m_ParameterValue>
+    </m_Events>
+    <m_Events x_name="4f1c92d8-6a37-4d21-9c8e-2b7f5ae1406">
+        <m_EventName>Footstep</m_EventName>
+        <m_TimePc>0.6</m_TimePc>
+        <m_ParameterValue>sprint</m_ParameterValue>
+    </m_Events>
+</animNode>

@@ -23,11 +23,15 @@ local APPROACH_OUTER_RADIUS = 0.40
 local NO_PROGRESS_BASE_TICKS = 5 * CLIENT_TICKS_PER_SECOND
 local NO_PROGRESS_STAGGER_TICKS = 2 * CLIENT_TICKS_PER_SECOND
 local PROGRESS_DISTANCE = 0.35
+local SPEED = ZombieFactions.SpeedType
+local SPRINT_VARIABLE = "ZombieFactionsSprint"
+local SPRINT_PLAYED_VARIABLE = "ZombieFactionsSprintPlayed"
+local SPRINT_LOG_INTERVAL_TICKS = 2 * CLIENT_TICKS_PER_SECOND
 
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.39")
+print("[ZombieFactions] Client target observer loaded v0.0.40")
 
 local function print(message)
     CombatController.detail(message)
@@ -89,6 +93,111 @@ local function zombieState(zombie)
     return tostring(safeCall("unknown", function()
         return zombie:getRealState()
     end))
+end
+
+local function zombieSpeedType(zombie)
+    return tonumber(safeCall(-1, function()
+        return zombie:getSpeedType()
+    end)) or -1
+end
+
+local function zombieWalkType(zombie)
+    return tostring(safeCall("", function()
+        return zombie:getWalkType()
+    end) or "")
+end
+
+local function variableBool(zombie, name)
+    return safeCall(false, function()
+        return zombie:getVariableBoolean(name)
+    end) == true
+end
+
+local function isCrawling(zombie)
+    return safeCall(false, function()
+        return zombie:isCrawling()
+    end) == true
+end
+
+-- Sprint locomotion is only ever requested for a zombie the engine already
+-- classifies as a sprinter and which is upright. The mod never changes speed
+-- type, walk type, running state, or any shipped movement value; it only sets
+-- the one condition its own animation node matches on.
+local function isSprintEligible(zombie)
+    return zombieSpeedType(zombie) == SPEED.SPRINTER and not isCrawling(zombie)
+end
+
+local function setSprintIntent(record, active)
+    local subject = record.subject
+    if not subject then return end
+
+    if active then
+        if record.sprintActive then return end
+        local ok = safeCall(false, function()
+            subject:setVariable(SPRINT_VARIABLE, true)
+            return true
+        end)
+        if not ok then
+            CombatController.increment("sprintVariableErrors")
+            return
+        end
+        record.sprintActive = true
+        record.sprintLogCountdown = 0
+        CombatController.increment("sprintActivations")
+        return
+    end
+
+    if not record.sprintActive then return end
+    local ok = safeCall(false, function()
+        subject:setVariable(SPRINT_VARIABLE, false)
+        subject:setVariable(SPRINT_PLAYED_VARIABLE, false)
+        return true
+    end)
+    if not ok then CombatController.increment("sprintVariableErrors") end
+    record.sprintActive = false
+    CombatController.increment("sprintClears")
+end
+
+-- Ground truth for "did it actually go faster": planar tiles covered per second
+-- while under our pursuit control, bucketed by speed class so a shambler in the
+-- same run is a directly comparable control.
+local function sampleTravel(record, stepTicks, moving)
+    local subject = record.subject
+    local x = safeCall(nil, function() return subject:getX() end)
+    local y = safeCall(nil, function() return subject:getY() end)
+    if x == nil or y == nil then
+        record.lastTravelX = nil
+        return
+    end
+
+    if moving and record.lastTravelX ~= nil then
+        local dx = x - record.lastTravelX
+        local dy = y - record.lastTravelY
+        local bucket = record.sprintEligible and "sprint" or "shambler"
+        CombatController.increment(bucket .. "TravelTiles", math.sqrt(dx * dx + dy * dy))
+        CombatController.increment(bucket .. "TravelSeconds", stepTicks / CLIENT_TICKS_PER_SECOND)
+        CombatController.increment(bucket .. "TravelSamples")
+    end
+
+    record.lastTravelX = moving and x or nil
+    record.lastTravelY = moving and y or nil
+end
+
+-- The animation node sets its own variable early in each loop. Reading and
+-- clearing it here is the only evidence that the node was actually selected,
+-- as opposed to the mod merely having asked for it.
+local function sampleSprintNode(record)
+    local subject = record.subject
+    if variableBool(subject, SPRINT_PLAYED_VARIABLE) then
+        CombatController.increment("sprintNodePlayedSamples")
+        safeCall(false, function()
+            subject:setVariable(SPRINT_PLAYED_VARIABLE, false)
+            return true
+        end)
+        return true
+    end
+    CombatController.increment("sprintNodeMissingSamples")
+    return false
 end
 
 local function isAttacking(zombie, target)
@@ -155,6 +264,7 @@ end
 local function applySafetyInterlock(record)
     local reason = safetyReason(record.subject, record.candidate)
     if reason then
+        setSprintIntent(record, false)
         local cleared = false
         if isZombieTarget(currentTarget(record.subject)) then
             cleared = pcall(function() record.subject:setTarget(nil) end)
@@ -396,6 +506,7 @@ local function enterPursuit(record, reason, forceRefresh)
     local candidate = record.candidate
     local cleared, clearReason = clearZombieTarget(subject)
     if not cleared then
+        setSprintIntent(record, false)
         if record.controlMode ~= "blocked-player-target" then
             print(string.format(
                 "[ZombieFactions][%s][OWNER_PROBE] phase=control-blocked reason=%s subject=%d candidate=%d state=%s",
@@ -413,6 +524,10 @@ local function enterPursuit(record, reason, forceRefresh)
     local previousMode = record.controlMode
     local desiredMode = reason == "contact-close" and "contact-closing" or "pursuit"
     record.controlMode = desiredMode
+    -- Re-checked every pass rather than once, so a zombie that stops being an
+    -- upright sprinter mid-approach drops the request immediately.
+    record.sprintEligible = isSprintEligible(subject)
+    setSprintIntent(record, record.sprintEligible)
     if forceRefresh
         or previousMode ~= desiredMode
         or candidateMovedFromPath(record)
@@ -449,6 +564,10 @@ end
 local function enterEngagement(record, areaReason)
     local subject = record.subject
     local candidate = record.candidate
+    -- Sprinting stops at contact so the attack presentation starts from a
+    -- settled pose, matching how the shipped sprint ends when a target is
+    -- reached.
+    setSprintIntent(record, false)
     local cleared, clearReason = clearZombieTarget(subject)
     if not cleared then
         record.controlMode = "blocked-player-target"
@@ -502,6 +621,7 @@ local function requestReacquire(record)
     if not player or ownerUsername(record.subject) ~= player:getUsername() then return end
 
     record.reacquireRequested = true
+    setSprintIntent(record, false)
     if isZombieTarget(currentTarget(record.subject)) then
         pcall(function() record.subject:setTarget(nil) end)
     end
@@ -557,8 +677,14 @@ local function beginOwnerProbe(record)
             record.grantCount or 0
         ))
     end
+    if replaced then setSprintIntent(replaced, false) end
     tracked[record.subjectId] = record
     CombatController.clearMeleeAuthorization(record.subjectId)
+    record.sprintActive = false
+    record.sprintEligible = false
+    record.sprintLogCountdown = 0
+    record.lastTravelX = nil
+    record.lastTravelY = nil
     record.pathRefreshCountdown = 0
     if record.persistent then
         record.remaining = 0
@@ -657,6 +783,7 @@ local function onServerCommand(module, command, args)
         end
         local record = tracked[subjectId]
         if record and record.candidateId == candidateId then
+            setSprintIntent(record, false)
             if isZombieTarget(currentTarget(record.subject)) then
                 pcall(function() record.subject:setTarget(nil) end)
             end
@@ -745,6 +872,9 @@ local function updateTargetRecord(record, stepTicks)
     local existingTarget = currentTarget(zombie)
     if existingTarget ~= nil then
         if not isZombieTarget(existingTarget) then
+            -- A player target restores ordinary vanilla behavior, including the
+            -- shipped sprint. Our request must be gone before that happens.
+            setSprintIntent(record, false)
             record.controlMode = "blocked-player-target"
             record.meleeCommitted = false
             updateProgress(record, distance, stepTicks, false)
@@ -753,6 +883,7 @@ local function updateTargetRecord(record, stepTicks)
         end
         local cleared = clearZombieTarget(zombie)
         if not cleared then
+            setSprintIntent(record, false)
             record.controlMode = "native-target-clear-failed"
             record.meleeCommitted = false
             return
@@ -787,6 +918,31 @@ local function updateTargetRecord(record, stepTicks)
         end
     end
     record.meleeCommitted = meleeCommitted
+
+    local approaching = record.controlMode == "pursuit" or record.controlMode == "contact-closing"
+    sampleTravel(record, stepTicks, approaching)
+    if record.sprintActive then
+        local nodePlaying = sampleSprintNode(record)
+        record.sprintLogCountdown = (record.sprintLogCountdown or 0) - stepTicks
+        if record.sprintLogCountdown <= 0 then
+            record.sprintLogCountdown = SPRINT_LOG_INTERVAL_TICKS
+            print(string.format(
+                "[ZombieFactions][%s][SPRINT_PROBE] subject=%d candidate=%d controlMode=%s speedType=%d walkType=%s sprintNodePlaying=%s bMoving=%s intrees=%s state=%s distance=%.2f",
+                record.runId,
+                record.subjectId,
+                record.candidateId,
+                tostring(record.controlMode or "none"),
+                zombieSpeedType(zombie),
+                zombieWalkType(zombie),
+                tostring(nodePlaying),
+                tostring(variableBool(zombie, "bMoving")),
+                tostring(variableBool(zombie, "intrees")),
+                zombieState(zombie),
+                distance
+            ))
+        end
+    end
+
     updateProgress(record, distance, stepTicks, meleeCommitted and record.controlMode == "engagement")
     printSnapshot(record, "observe", false)
 end
@@ -851,6 +1007,7 @@ local function onControllerUpdate(stepTicks)
                 record.grantCount or 0
             ))
             printSnapshot(record, "final", true)
+            setSprintIntent(record, false)
             if isZombieTarget(currentTarget(record.subject)) then
                 pcall(function() record.subject:setTarget(nil) end)
             end
