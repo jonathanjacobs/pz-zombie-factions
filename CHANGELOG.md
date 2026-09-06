@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.43 — 2026-09-06
+
+Shortens the validated sprinter braking runway and corrects the overshoot counter.
+
+- reduces `SPRINT_BRAKE_DISTANCE` from `2.50` to `2.00` on operator judgement that the deceleration runway looked longer than it needed to be. The v0.0.42 run validated the mechanism at `2.50`: melee authorisation began occurring at an average pair distance of `0.51`–`0.54` tiles, inside the commitment band the pair had previously skipped past entirely. Because the brake fires on the first pass at or inside the constant and a converging pair closes about `0.68` tiles per pass, the observed brake landed at `2.08`–`2.33` rather than at the constant itself, so `2.00` should put it near `1.3`–`2.0`;
+- gates `sprintOvershoots` on sprint being active rather than on the subject merely being a sprinter. The v0.0.42 run recorded ten overshoots in a window holding zero sprint intent, because a braked sprinter still counts as eligible and ordinary jostling at melee range separates a pair routinely. The counter was therefore measuring normal close-quarters movement instead of the high-speed circling it exists to detect.
+
 ## 0.0.42 — 2026-09-06
 
 Unvalidated sprinter braking for [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10), which the v0.0.41 run reproduced between two sprinters far more severely than the shambler case that first recorded it.

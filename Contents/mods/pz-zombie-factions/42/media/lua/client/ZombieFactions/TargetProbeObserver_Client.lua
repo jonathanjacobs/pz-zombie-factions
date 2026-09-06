@@ -29,18 +29,22 @@ local SPRINT_PLAYED_VARIABLE = "ZombieFactionsSprintPlayed"
 local SPRINT_LOG_INTERVAL_TICKS = 2 * CLIENT_TICKS_PER_SECOND
 local TRAVEL_SAMPLE_MAX_GAP_SECONDS = 0.5
 local TRAVEL_PRUNE_INTERVAL_PASSES = 50
--- Sprint is dropped this far out so the last stretch is walked. Sized from the
--- v0.0.41 measurement: a sprinter covers ~0.34 tiles per controller pass, a
--- converging pair closes ~0.68, and the walk animation needs about a third of a
--- second to blend in, over which a converging pair still covers ~1.4 tiles. This
--- is an estimate; the brake and first-authorisation distances are both recorded
--- so it can be tuned from evidence rather than arithmetic.
-local SPRINT_BRAKE_DISTANCE = 2.50
+-- Sprint is dropped this far out so the last stretch is walked.
+--
+-- The v0.0.42 run validated the approach at 2.50: melee authorisation began
+-- happening at an average pair distance of 0.51-0.54 tiles, comfortably inside
+-- the commitment band the pair had previously been skipping straight past.
+-- Because the brake fires on the first pass at or inside this distance and a
+-- converging pair closes ~0.68 tiles per pass, the observed brake landed at
+-- 2.08-2.33 rather than at the constant itself. Shortened to 2.00 on operator
+-- judgement that the deceleration runway looked longer than it needed to be,
+-- which should put the observed brake near 1.3-2.0.
+local SPRINT_BRAKE_DISTANCE = 2.00
 
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.42")
+print("[ZombieFactions] Client target observer loaded v0.0.43")
 
 local function print(message)
     CombatController.detail(message)
@@ -983,7 +987,14 @@ local function updateTargetRecord(record, stepTicks)
 
     -- Direct measure of the overshoot that made two sprinters circle each other:
     -- the pair was inside the engagement band and then got further apart.
-    if record.sprintEligible
+    --
+    -- Gated on sprint actually being active, not merely on the subject being a
+    -- sprinter. The v0.0.42 run showed why: one window recorded ten overshoots
+    -- with zero sprint intent held, because a braked sprinter still counts as
+    -- eligible and ordinary jostling at melee range separates a pair all the
+    -- time. That measured normal close-quarters movement rather than the
+    -- high-speed circling this counter exists to detect.
+    if record.sprintActive
         and record.lastPassDistance ~= nil
         and distance <= ENGAGEMENT_DISTANCE
         and distance > record.lastPassDistance
