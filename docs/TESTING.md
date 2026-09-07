@@ -190,6 +190,43 @@ trip roll requires a native target, which faction pursuit deliberately holds cle
 its absence is expected behavior in this build rather than a test failure. See
 [`spikes/SPIKE-005-sprinter-locomotion.md`](spikes/SPIKE-005-sprinter-locomotion.md).
 
+## Version 0.0.45 Neutral retaliation matrix
+
+Use mob size `8`, the accepted `0.80`/`1.60` distances, clear level ground, and the
+default `RetaliationRadius=8` / `RetaliationSeconds=60`. Server diagnostics on; the run
+is short enough that the client log will survive.
+
+Relationships: Red → Vanilla `HOSTILE`, Vanilla → Red `NEUTRAL`. Disable the symmetric
+mirror so the two directions differ.
+
+The discriminating case is the third one. The first two only show that retaliation
+happens at all; the third is what proves hostility stayed individual.
+
+1. **A Neutral zombie does not initiate.** Spawn one Vanilla and one Red about ten
+   tiles apart with the target probe enabled. The Red must attack; the Vanilla must not
+   attack first. Require `retaliationsFormed=0` until the first accepted hit lands.
+2. **A free victim answers.** After the first accepted hit, require `retaliationsFormed`
+   and `retaliationPinnedSelections` to increase, and the Vanilla to fight back against
+   the Red that hit it. Confirm the `RETALIATION` line reports `victimFree=true`.
+3. **Hostility does not spread.** Add a second Red that never attacks, standing within
+   the retaliation radius. The retaliating Vanilla must ignore it entirely. If it
+   attacks the second Red, hostility leaked to the faction and the design has failed.
+   This is the case worth repeating.
+4. **An engaged victim keeps its fight, friends answer.** Give the Vanilla a hostile of
+   its own to fight first, then have a Red hit it, with a spare free Vanilla within the
+   radius. The victim must not switch targets; the spare must retaliate. With no spare
+   in range, expect no retaliation at all — that is intended, not a failure.
+5. **It lapses.** Stop attacking and wait past `RetaliationSeconds`. Require
+   `retaliationsExpired` to increase, the retaliation grants to be released, and the
+   Vanilla to visibly disengage rather than finish the fight.
+6. **The timer refreshes.** Attack repeatedly at intervals shorter than the duration and
+   confirm `retaliationsRefreshed` increases while `retaliationsExpired` stays at zero.
+
+Throughout, require `damageProfileRejected=0`, `damageConfigMismatch=0`, and no Zombie
+Factions exception. Note how long recruits take to receive their first grant: they are
+picked up by the mob maintenance sweep, which runs once a second, so a visible delay of
+about that order is expected and anything much longer is worth reporting.
+
 ## Issue #1 distance-envelope matrix
 
 Version 0.0.35 exposes two diagnostic sandbox options, both measured in planar tiles:

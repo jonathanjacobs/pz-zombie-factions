@@ -78,11 +78,15 @@ ZombieFactions.TargetProbeMobSequence = ZombieFactions.TargetProbeMobSequence or
 ZombieFactions.TargetProbeMobs = ZombieFactions.TargetProbeMobs or {}
 ZombieFactions.TargetProbeMobBySubjectId = ZombieFactions.TargetProbeMobBySubjectId or {}
 ZombieFactions.PendingMobWakeups = ZombieFactions.PendingMobWakeups or {}
+-- Live Neutral retaliations. Each entry authorizes one defending faction to target
+-- exactly one attacker, for a bounded time, and nothing else. Hostility never
+-- extends to the attacker's faction or to its mob.
+ZombieFactions.Retaliations = ZombieFactions.Retaliations or {}
 ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.44 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.45 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -131,7 +135,7 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -166,7 +170,13 @@ local function printPerformanceSummary()
         performanceAverage("damageDispatchedClientDistanceTotal", "damageDispatchedClientDistanceSamples"),
         performanceAverage("damageDistanceRejectedServerDistanceTotal", "damageDistanceRejectedDistanceSamples"),
         performanceValue("damageDistanceRejectedServerDistanceMax"),
-        performanceAverage("damageDistanceRejectedClientDistanceTotal", "damageDistanceRejectedClientDistanceSamples")
+        performanceAverage("damageDistanceRejectedClientDistanceTotal", "damageDistanceRejectedClientDistanceSamples"),
+        #ZombieFactions.Retaliations,
+        performanceValue("retaliationsFormed"),
+        performanceValue("retaliationsRefreshed"),
+        performanceValue("retaliationRecruits"),
+        performanceValue("retaliationsExpired"),
+        performanceValue("retaliationPinnedSelections")
     ))
     performanceCounters = {}
 end
@@ -449,6 +459,12 @@ local function discoveryBucketKey(bucketX, bucketY, z)
     return tostring(bucketX) .. ":" .. tostring(bucketY) .. ":" .. tostring(z)
 end
 
+-- Forward declarations: findNearestEligibleZombie consults these before they are
+-- defined below.
+local retaliationPermits
+local retaliationPinFor
+local serverCanTarget
+
 local function buildDiscoveryIndex()
     ZombieFactions.TargetProbeDiscoveryIndexSequence = ZombieFactions.TargetProbeDiscoveryIndexSequence + 1
     local index = {
@@ -568,7 +584,7 @@ local function findNearestEligibleZombie(subject, radius, index, targetLoads, av
                                 stats.idCollision = stats.idCollision + 1
                             else
                                 local allowed, sourceFaction, targetFaction, relationship, reason =
-                                    ZombieFactions.canTarget(subject, candidate)
+                                    serverCanTarget(subject, candidate)
                                 if allowed and (not requiredTargetFaction or targetFaction == requiredTargetFaction) then
                                     stats.eligible = stats.eligible + 1
                                     if dist2 < nearestDist2 then
@@ -659,6 +675,80 @@ local function mobRecruitmentRadius()
     return math.max(1, math.min(50, math.floor(value)))
 end
 
+local function retaliationRadius()
+    local options = SandboxVars and SandboxVars.ZombieFactions
+    local value = options and tonumber(options.RetaliationRadius) or 8
+    if not value then return 8 end
+    return math.max(0, math.min(50, math.floor(value)))
+end
+
+local function retaliationTicks()
+    local options = SandboxVars and SandboxVars.ZombieFactions
+    local value = options and tonumber(options.RetaliationSeconds) or 60
+    if not value then return 60 * SERVER_TICKS_PER_SECOND end
+    return math.max(0, math.min(600, math.floor(value))) * SERVER_TICKS_PER_SECOND
+end
+
+local function retaliationEnabled()
+    return retaliationRadius() > 0 and retaliationTicks() > 0
+end
+
+-- True while a live retaliation authorizes this exact defender to target this exact
+-- attacker. Nothing else about the pair changes: the relationship stays NEUTRAL, so
+-- the authorization lapses on its own and normal behavior resumes.
+retaliationPermits = function(subject, candidate)
+    local subjectId = zombieOnlineId(subject)
+    local candidateId = zombieOnlineId(candidate)
+    if subjectId == -1 or candidateId == -1 then return false end
+
+    for i = 1, #ZombieFactions.Retaliations do
+        local entry = ZombieFactions.Retaliations[i]
+        if entry.attackerId == candidateId and entry.members[subjectId] then
+            return true
+        end
+    end
+    return false
+end
+
+-- The attacker a retaliating member is pinned to, if any.
+--
+-- Authorization alone is not enough to make the group answer the provoker: ordinary
+-- selection is nearest-first with load balancing and is constrained to the mob's
+-- current target faction, so it would happily pick something else. The pin is what
+-- turns "may target the attacker" into "does target the attacker".
+retaliationPinFor = function(subject)
+    local subjectId = zombieOnlineId(subject)
+    if subjectId == -1 then return nil end
+
+    for i = 1, #ZombieFactions.Retaliations do
+        local entry = ZombieFactions.Retaliations[i]
+        if entry.members[subjectId] then
+            local attacker = entry.attacker
+            if attacker
+                and not isDead(attacker)
+                and zombieOnlineId(attacker) == entry.attackerId
+                and sameLevel(attacker, subject)
+            then
+                return attacker
+            end
+        end
+    end
+    return nil
+end
+
+-- Server-side eligibility. Identical to the shared policy except that a NEUTRAL pair
+-- becomes eligible while a retaliation authorizes it. The shared TargetPolicy stays
+-- pure and side-effect free; retaliation is server runtime state and stays here.
+serverCanTarget = function(subject, candidate)
+    local allowed, sourceFaction, targetFaction, relationship, reason =
+        ZombieFactions.canTarget(subject, candidate)
+    if allowed then return true, sourceFaction, targetFaction, relationship, reason end
+    if relationship == NEUTRAL and retaliationPermits(subject, candidate) then
+        return true, sourceFaction, targetFaction, relationship, "neutral-retaliation"
+    end
+    return false, sourceFaction, targetFaction, relationship, reason
+end
+
 local function mobTargetRetentionRadius()
     return math.max(TARGET_PROBE_RELEASE_RADIUS, TARGET_PROBE_RADIUS + mobRecruitmentRadius())
 end
@@ -670,6 +760,7 @@ end
 
 local queueTargetSubject
 local activateMobMemberAgainstCurrent
+local formRetaliation
 
 local function stableMobBySubjectId(subjectId)
     local mobId = ZombieFactions.TargetProbeMobBySubjectId[subjectId]
@@ -1101,7 +1192,24 @@ local function enqueueMobWakeup(mob, member, candidate, leaderId, memberIndex, r
 end
 
 local function selectMobMemberTarget(mob, member, targetLoads, avoidCandidateId)
-    if not mob or not member or not mob.targetFaction then return nil end
+    if not mob or not member then return nil end
+
+    -- A retaliating member answers the individual that provoked it, ahead of the
+    -- mob's ordinary nearest-first selection and regardless of the mob's current
+    -- target faction, which would otherwise exclude a merely NEUTRAL attacker.
+    local pinned = retaliationPinFor(member.subject)
+    if pinned then
+        countPerformance("memberSelections")
+        countPerformance("retaliationPinnedSelections")
+        return pinned,
+            distanceSquared(member.subject, pinned),
+            ZombieFactions.getZombieFaction(member.subject),
+            ZombieFactions.getZombieFaction(pinned),
+            NEUTRAL,
+            {nearestId = zombieOnlineId(pinned)}
+    end
+
+    if not mob.targetFaction then return nil end
     countPerformance("memberSelections")
     local candidate, dist2, sourceFaction, targetFaction, relationship, stats = findNearestEligibleZombie(
         member.subject,
@@ -1224,7 +1332,7 @@ local function processPendingMobWakeups()
                 wakeup.retryCountdown = TARGET_PROBE_SCAN_INTERVAL_TICKS
             else
                 local allowed, sourceFaction, targetFaction, relationship =
-                    ZombieFactions.canTarget(member.subject, wakeup.candidate)
+                    serverCanTarget(member.subject, wakeup.candidate)
                 if not allowed
                     or targetFaction ~= mob.targetFaction
                     or not sameLevel(member.subject, wakeup.candidate)
@@ -1303,7 +1411,7 @@ local function beginOwnerTargetProbe(record, index, targetLoads)
         and dist2 <= mobTargetRetentionRadius() * mobTargetRetentionRadius()
     then
         local allowed
-        allowed, sourceFaction, targetFaction, relationship = ZombieFactions.canTarget(subject, candidate)
+        allowed, sourceFaction, targetFaction, relationship = serverCanTarget(subject, candidate)
         if not allowed then candidate = nil end
     else
         candidate = nil
@@ -1424,7 +1532,7 @@ local function beginOwnerTargetProbe(record, index, targetLoads)
         candidateId
     ))
 
-    local reverseAllowed = ZombieFactions.canTarget(candidate, subject)
+    local reverseAllowed = serverCanTarget(candidate, subject)
     if reverseAllowed then
         local queued, queueReason = queueTargetSubject(
             candidate,
@@ -1567,7 +1675,7 @@ local function handleDamageProbe(player, args)
     end
 
     local allowed, sourceFaction, candidateFaction, relationship, policyReason =
-        ZombieFactions.canTarget(record.subject, record.candidate)
+        serverCanTarget(record.subject, record.candidate)
     if not allowed then
         countPerformance("damageRejected")
         print(string.format(
@@ -1858,7 +1966,7 @@ local function handleDamageAck(player, args)
     if lethal and not deathLifecycleInvoked then
         message = "owner damage synchronized; death lifecycle failed: " .. tostring(deathErr)
     end
-    if not dead and ZombieFactions.canTarget(record.candidate, record.subject) then
+    if not dead and serverCanTarget(record.candidate, record.subject) then
         local queued = queueTargetSubject(
             record.candidate,
             record.runId,
@@ -1870,8 +1978,158 @@ local function handleDamageAck(player, args)
             record.subject
         )
         if queued then countPerformance("reactiveWakeups") end
+    elseif not dead then
+        -- The defender may not target its attacker under current policy. If the only
+        -- thing stopping it is a NEUTRAL relationship, the attack itself authorizes a
+        -- bounded, attacker-specific answer.
+        local _, _, _, relationship = ZombieFactions.canTarget(record.candidate, record.subject)
+        if relationship == NEUTRAL then
+            formRetaliation(record.candidate, record.subject, record)
+        end
     end
     sendDamageResult(record, ok, message, pending, serverBeforeHealth, serverAfterHealth, dead)
+end
+
+-- Recruits same-faction zombies near a Neutral victim to answer one attacker.
+--
+-- Recruits must not already hold a target or a pending probe, so an ongoing fight is
+-- never interrupted and no live grant is invalidated. The victim is not special-cased:
+-- it is recruited only if it is itself free. A victim already fighting someone else
+-- keeps that fight, and its neighbours answer on its behalf, which also means an
+-- engaged victim with no free neighbours produces no retaliation at all.
+formRetaliation = function(defender, attacker, sourceRecord)
+    if not retaliationEnabled() then return false end
+
+    local attackerId = zombieOnlineId(attacker)
+    local defenderId = zombieOnlineId(defender)
+    if attackerId == -1 or defenderId == -1 then return false end
+
+    local factionId = ZombieFactions.getZombieFaction(defender)
+    local radius = retaliationRadius()
+    local sizeCap = zombieMobSize()
+
+    local entry = nil
+    for i = 1, #ZombieFactions.Retaliations do
+        local candidateEntry = ZombieFactions.Retaliations[i]
+        if candidateEntry.attackerId == attackerId and candidateEntry.factionId == factionId then
+            entry = candidateEntry
+            break
+        end
+    end
+
+    local created = false
+    if not entry then
+        entry = {
+            attackerId = attackerId,
+            attacker = attacker,
+            factionId = factionId,
+            members = {},
+            memberCount = 0,
+            runId = sourceRecord and sourceRecord.runId or "SPIKE001",
+            requester = sourceRecord and sourceRecord.requester or nil,
+        }
+        ZombieFactions.Retaliations[#ZombieFactions.Retaliations + 1] = entry
+        created = true
+        countPerformance("retaliationsFormed")
+    else
+        countPerformance("retaliationsRefreshed")
+    end
+    -- Any further validated hit restarts the clock, so a sustained fight cannot see
+    -- the authorization lapse underneath it.
+    entry.remaining = retaliationTicks()
+
+    local recruited = 0
+    local index = getDiscoveryIndex()
+    local bucketRadius = math.ceil(radius / DISCOVERY_BUCKET_SIZE)
+    local originX = math.floor(defender:getX() / DISCOVERY_BUCKET_SIZE)
+    local originY = math.floor(defender:getY() / DISCOVERY_BUCKET_SIZE)
+    local originZ = math.floor(defender:getZ())
+
+    for bx = originX - bucketRadius, originX + bucketRadius do
+        for by = originY - bucketRadius, originY + bucketRadius do
+            local bucket = index.buckets[discoveryBucketKey(bx, by, originZ)]
+            if bucket then
+                for i = 1, #bucket do
+                    local zombie = bucket[i]
+                    if sizeCap > 0 and entry.memberCount >= sizeCap then break end
+                    local zombieId = zombieOnlineId(zombie)
+                    if zombieId ~= -1
+                        and not entry.members[zombieId]
+                        and not isDead(zombie)
+                        and ZombieFactions.getZombieFaction(zombie) == factionId
+                        and sameLevel(zombie, defender)
+                        and distanceSquared(zombie, defender) <= radius * radius
+                        and not subjectHasProbe(zombie)
+                        and not pendingProbeForSubjectId(zombieId)
+                    then
+                        entry.members[zombieId] = true
+                        entry.memberCount = entry.memberCount + 1
+                        recruited = recruited + 1
+                        -- Pinned: the retaliating group answers the individual that
+                        -- provoked it, not whatever happens to be nearest.
+                        if queueTargetSubject(
+                            zombie,
+                            entry.runId,
+                            entry.requester,
+                            nil,
+                            "neutral-retaliation",
+                            0,
+                            nil,
+                            attacker
+                        ) then
+                            countPerformance("retaliationRecruits")
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    print(string.format(
+        "[ZombieFactions][%s][RETALIATION] phase=%s attacker=%d victim=%d faction=%s radius=%d sizeCap=%d recruited=%d members=%d seconds=%d victimFree=%s",
+        entry.runId,
+        created and "formed" or "refreshed",
+        attackerId,
+        defenderId,
+        tostring(factionId),
+        radius,
+        sizeCap,
+        recruited,
+        entry.memberCount,
+        math.floor(entry.remaining / SERVER_TICKS_PER_SECOND),
+        tostring(entry.members[defenderId] == true)
+    ))
+    return true
+end
+
+-- Retaliation is an authorization, not a state change: when it lapses the grants it
+-- permitted are released and the pair is NEUTRAL again with nothing left behind.
+local function updateRetaliations()
+    for i = #ZombieFactions.Retaliations, 1, -1 do
+        local entry = ZombieFactions.Retaliations[i]
+        entry.remaining = entry.remaining - 1
+        if entry.remaining <= 0 then
+            local released = 0
+            for probeIndex = #ZombieFactions.ActiveTargetProbes, 1, -1 do
+                local record = ZombieFactions.ActiveTargetProbes[probeIndex]
+                if record.candidateId == entry.attackerId and entry.members[record.subjectId] then
+                    sendTargetRelease(record, "retaliation-expired")
+                    table.remove(ZombieFactions.ActiveTargetProbes, probeIndex)
+                    released = released + 1
+                end
+            end
+            table.remove(ZombieFactions.Retaliations, i)
+            countPerformance("retaliationsExpired")
+            print(string.format(
+                "[ZombieFactions][%s][RETALIATION] phase=expired attacker=%d faction=%s members=%d grantsReleased=%d",
+                entry.runId,
+                entry.attackerId,
+                tostring(entry.factionId),
+                entry.memberCount,
+                released
+            ))
+        end
+    end
 end
 
 local function requeueActiveSubject(record, reason)
@@ -1988,6 +2246,7 @@ local function onTick()
         maintainStableMobs()
     end
     processPendingMobWakeups()
+    updateRetaliations()
 
     for i = #ZombieFactions.PendingAssignmentValidations, 1, -1 do
         local record = ZombieFactions.PendingAssignmentValidations[i]
@@ -2153,7 +2412,7 @@ local function onTick()
             finalReason = "candidate-dead"
             reacquire = true
         elseif not record.pendingDamage then
-            local allowed = ZombieFactions.canTarget(record.subject, record.candidate)
+            local allowed = serverCanTarget(record.subject, record.candidate)
             if not allowed then
                 finalReason = "policy-changed"
                 reacquire = true

@@ -42,6 +42,10 @@ function ZombieFactions.canTarget(attacker, candidate)
     if relationship == REL.FRIENDLY then
         return false, sourceFaction, targetFaction, relationship, "friendly"
     end
+    -- NEUTRAL never initiates. Retaliation after an accepted attack is a bounded,
+    -- attacker-specific server authorization layered on top of this result; it is
+    -- deliberately not represented here so this module stays pure and side-effect
+    -- free. See the retaliation handling in the server harness.
     if relationship == REL.NEUTRAL then
         return false, sourceFaction, targetFaction, relationship, "neutral"
     end

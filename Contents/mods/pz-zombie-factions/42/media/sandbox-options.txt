@@ -29,3 +29,23 @@ option ZombieFactions.ServerValidationDistance
     page = ZombieFactions,
     translation = ZombieFactions_ServerValidationDistance,
 }
+
+option ZombieFactions.RetaliationRadius
+{
+    type = integer,
+    min = 0,
+    max = 50,
+    default = 8,
+    page = ZombieFactions,
+    translation = ZombieFactions_RetaliationRadius,
+}
+
+option ZombieFactions.RetaliationSeconds
+{
+    type = integer,
+    min = 0,
+    max = 600,
+    default = 60,
+    page = ZombieFactions,
+    translation = ZombieFactions_RetaliationSeconds,
+}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.45 — 2026-09-06
+
+Unvalidated `NEUTRAL` retaliation. Previously `NEUTRAL` rejected targeting outright in every case, so the framework offered three relationship types and delivered two: nothing ever fought back.
+
+- a `NEUTRAL` zombie that takes server-validated damage now authorizes same-faction zombies within a configurable radius to answer that **one attacker**, for a bounded time. Hostility never extends to the attacker's faction or to its mob, so a single incident cannot escalate into a war and the directional relationship itself is unchanged;
+- recruits must not already hold a target or a pending probe, so an ongoing fight is never interrupted and no live grant is invalidated. The victim is not special-cased and is recruited only if it is itself free: a victim already fighting someone else keeps that fight and its neighbours answer on its behalf. An engaged victim with no free neighbours therefore produces no retaliation at all;
+- membership is capped by `ZombieFactions.ZombieMobSize` unless that is `0`, in which case the radius alone bounds it;
+- retaliating members are pinned to the provoker. Authorization alone was not enough, because ordinary selection is nearest-first with load balancing and is constrained to the mob's current target faction, which would exclude a merely `NEUTRAL` attacker;
+- any further validated hit on a member restarts the timer, so the authorization cannot lapse underneath a sustained fight;
+- on expiry the grants it permitted are released and the pair is `NEUTRAL` again with nothing left behind;
+- adds `ZombieFactions.RetaliationRadius` (default `8` tiles) and `ZombieFactions.RetaliationSeconds` (default `60`), either set to `0` to disable;
+- the shared `TargetPolicy` stays pure and side-effect free; retaliation is server runtime state and the server layers it on top of the shared result.
+
 ## 0.0.44 — 2026-09-06
 
 Shortens the sprinter braking runway again on operator judgement.

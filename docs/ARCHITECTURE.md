@@ -21,6 +21,16 @@ The animation nodes cover bites, crawler lunges, standing stomps, defender react
 
 The shared layer provides stable zombie-faction identity, directional relationships, and side-effect-free eligibility checks. `zf:vanilla` is the default identity; `zf:test-red` and `zf:test-blue` are diagnostic identities. Zombie assignment currently uses zombie `modData` and optional run identity. Production persistence and automatic enrollment are not yet complete.
 
+### Neutral retaliation
+
+`NEUTRAL` never initiates. Version 0.0.45 adds the answering half: when a `NEUTRAL` zombie takes server-validated damage, the server authorizes same-faction zombies within `ZombieFactions.RetaliationRadius` of it to target that one attacker for `ZombieFactions.RetaliationSeconds`. Either option set to `0` disables the behavior.
+
+Three properties define it. Hostility is individual, extending to the attacker alone and never to its faction or its mob, so one incident cannot escalate and the stored directional relationship is unchanged. It is bounded, with any further validated hit on a member restarting the timer so a sustained fight cannot outlive its own authorization, and with the permitted grants released on expiry so nothing persists. And it never disrupts existing combat: recruits must hold no target and no pending probe, which also means the victim is recruited only if it is itself free, and an engaged victim with no free neighbours produces no retaliation at all.
+
+Authorization alone does not produce the behavior, because ordinary member selection is nearest-first with load balancing and is constrained to the mob's current target faction, which excludes a merely `NEUTRAL` attacker. Retaliating members are therefore pinned to the provoker ahead of that selection. Membership is capped by `ZombieFactions.ZombieMobSize` unless that is `0`, in which case the radius alone bounds it.
+
+[`TargetPolicy.lua`](../Contents/mods/pz-zombie-factions/42/media/lua/shared/ZombieFactions/TargetPolicy.lua) stays pure and side-effect free and still rejects `NEUTRAL`; retaliation is server runtime state layered on top of that result, consistent with server ownership of policy under [`adr/ADR-001-zombie-combat-authority.md`](adr/ADR-001-zombie-combat-authority.md). The record keys on a target identity rather than specifically a zombie, so extending retaliation to players later does not require reworking it.
+
 ## Authority and combat flow
 
 The accepted authority boundary is recorded in [`adr/ADR-001-zombie-combat-authority.md`](adr/ADR-001-zombie-combat-authority.md):

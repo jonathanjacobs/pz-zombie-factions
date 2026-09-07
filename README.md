@@ -3,7 +3,7 @@
 A Project Zomboid Build 42 framework for zombie-faction identity and directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationships.
 
 - Status: **Research / Pre-Alpha**
-- Current version: **v0.0.44**
+- Current version: **v0.0.45**
 - Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Current state
@@ -21,7 +21,7 @@ The current implementation remains diagnostic tooling. The administrator Horde S
 - Default installation preserves normal vanilla behavior.
 - Zombies can be shamblers, fast shamblers or sprinters; speed is assigned server-side and sprinters use native sprint locomotion during faction pursuit.
 - Standing bites, the v0.0.36 mixed-crowd crawler/stomp route, the v0.0.38 dormant-mob-member fix, and v0.0.40–0.0.43 sprinter speed assignment and locomotion have dedicated-server runtime evidence. The v0.0.37 seated-stomp/get-up extension has server-side profile-transition evidence consistent with a working get-up but no confirming client-side counters.
-- Not yet established: two-client ownership separation, sprinter behavior against crawling and sitting defenders beyond a handful of samples, the ordinary sprinter-versus-player regression, and `NEUTRAL` retaliation, which is currently rejected outright rather than implemented.
+- Not yet established: two-client ownership separation, sprinter behavior against crawling and sitting defenders beyond a handful of samples, the ordinary sprinter-versus-player regression, and the v0.0.45 `NEUTRAL` retaliation behavior, which is implemented but has no runtime evidence yet.
 - Only explicitly enrolled diagnostic zombies participate today.
 
 ## Documentation
