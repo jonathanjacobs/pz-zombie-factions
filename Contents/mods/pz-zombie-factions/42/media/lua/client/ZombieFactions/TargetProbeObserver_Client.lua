@@ -50,7 +50,7 @@ local SPRINT_BRAKE_DISTANCE = 1.75
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.50")
+print("[ZombieFactions] Client target observer loaded v0.0.51")
 
 local function print(message)
     CombatController.detail(message)

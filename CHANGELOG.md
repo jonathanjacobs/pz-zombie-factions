@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.51 — 2026-09-07
+
+Fixes two v0.0.50 defects that made Direct Acquisition unmeasurable. Found in the v0.0.50 server log, which recorded 2,372 runtime exceptions.
+
+- `beginOwnerTargetProbe` called `shareTargetWithMob` unconditionally, and that function indexes the mob it is handed. Under direct acquisition the mob is `nil`, so it threw after the grant had already been sent but before the probe was marked active. The pending probe was therefore never retired and re-scanned and re-granted on every interval, producing 2,360 grant transmissions for 480 zombies against only 122 damage requests. On the client each repeated grant resets the pursuit record, which cancels an armed attack presentation, so bites were audible but never animated;
+- `requeueActiveSubject` returned immediately when the subject had no mob, so under direct acquisition a zombie that lost its target was never given another one and idled for the rest of the session. It now re-queues directly;
+- sharing a target across a mob is skipped entirely when there is none, rather than guarded field by field.
+
 ## 0.0.50 — 2026-09-07
 
 Adds `ZombieFactions.DirectAcquisition`, an experimental mode that bypasses the mob and leader layer so its cost can be measured against its benefit. Off by default; no change to normal behavior.

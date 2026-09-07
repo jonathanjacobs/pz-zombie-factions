@@ -107,7 +107,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.50 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.51 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -1581,22 +1581,28 @@ local function beginOwnerTargetProbe(record, index, targetLoads)
     )
     if not active then return "retry" end
     targetLoads[candidateId] = (targetLoads[candidateId] or 0) + 1
-    local mobMembers = shareTargetWithMob(
-        record,
-        candidate,
-        mob,
-        targetFaction,
-        targetLoads
-    )
-    print(string.format(
-        "[ZombieFactions][%s][ACQUISITION_PROBE] phase=mob mobId=%d leader=%d members=%d configuredSize=%d candidate=%d",
-        record.runId,
-        mob.id,
-        subjectId,
-        mobMembers,
-        zombieMobSize(),
-        candidateId
-    ))
+
+    -- Sharing the target across a mob is meaningless without one, and
+    -- shareTargetWithMob indexes the mob unconditionally. Under direct acquisition
+    -- the grant stands on its own and this whole step is skipped.
+    if mob then
+        local mobMembers = shareTargetWithMob(
+            record,
+            candidate,
+            mob,
+            targetFaction,
+            targetLoads
+        )
+        print(string.format(
+            "[ZombieFactions][%s][ACQUISITION_PROBE] phase=mob mobId=%d leader=%d members=%d configuredSize=%d candidate=%d",
+            record.runId,
+            mob.id,
+            subjectId,
+            mobMembers,
+            zombieMobSize(),
+            candidateId
+        ))
+    end
 
     local reverseAllowed = serverCanTarget(candidate, subject)
     if reverseAllowed then
@@ -2200,6 +2206,24 @@ end
 
 local function requeueActiveSubject(record, reason)
     if record.persistent ~= true and record.remaining <= 0 then return end
+
+    -- Without this, direct acquisition strands every zombie that loses its target.
+    -- The mob path below returns immediately when there is no mob, so a released
+    -- subject would never be given another one and would idle for the rest of the
+    -- session.
+    if directAcquisition then
+        queueTargetSubject(
+            record.subject,
+            record.runId,
+            record.requester,
+            record.remaining,
+            reason or "requeue",
+            0,
+            record.candidateId
+        )
+        return
+    end
+
     local mob = stableMobBySubjectId(record.subjectId)
     if not mob then return end
     local leaderMember = chooseMobLeader(mob, reason)
