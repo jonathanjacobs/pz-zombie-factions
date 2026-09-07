@@ -86,7 +86,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.45 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.46 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -135,7 +135,7 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -176,7 +176,12 @@ local function printPerformanceSummary()
         performanceValue("retaliationsRefreshed"),
         performanceValue("retaliationRecruits"),
         performanceValue("retaliationsExpired"),
-        performanceValue("retaliationPinnedSelections")
+        performanceValue("retaliationPinnedSelections"),
+        zombieMobSize(),
+        performanceValue("candidateScans"),
+        performanceValue("acquisitionMsTotal"),
+        performanceValue("acquisitionMsMax"),
+        performanceValue("acquisitionSlowPasses")
     ))
     performanceCounters = {}
 end
@@ -531,6 +536,10 @@ local function buildTargetLoads()
 end
 
 local function findNearestEligibleZombie(subject, radius, index, targetLoads, avoidCandidateId, requiredTargetFaction)
+    -- Every full spatial scan, regardless of which path asked for it. Leader scans
+    -- and per-member selections both land here, so this is the real cost the mob
+    -- system exists to reduce.
+    countPerformance("candidateScans")
     local stats = {
         loaded = 0,
         inRadius = 0,
@@ -2230,6 +2239,11 @@ local function handleReacquireRequest(player, args)
 end
 
 local function onTick()
+    -- Wall-clock cost of one server-side faction pass. currentTimeMillis has coarse
+    -- resolution, so a single pass usually rounds to 0; what matters is the total
+    -- across a summary window and the count of passes that were individually
+    -- expensive enough to register at all. Both grow with real load.
+    local passStartMs = getTimestampMs()
     performanceSummaryCountdown = performanceSummaryCountdown - 1
     if performanceSummaryCountdown <= 0 then
         performanceSummaryCountdown = PERFORMANCE_SUMMARY_TICKS
@@ -2440,6 +2454,15 @@ local function onTick()
             table.remove(ZombieFactions.ActiveTargetProbes, i)
             if reacquire then requeueActiveSubject(record, finalReason) end
         end
+        end
+    end
+
+    local passMs = getTimestampMs() - passStartMs
+    if passMs > 0 then
+        countPerformance("acquisitionMsTotal", passMs)
+        countPerformance("acquisitionSlowPasses")
+        if passMs > performanceValue("acquisitionMsMax") then
+            setPerformanceMax("acquisitionMsMax", passMs)
         end
     end
 end

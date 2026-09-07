@@ -227,6 +227,52 @@ Factions exception. Note how long recruits take to receive their first grant: th
 picked up by the mob maintenance sweep, which runs once a second, so a visible delay of
 about that order is expected and anything much longer is worth reporting.
 
+## Mob-size comparison: is leader-shared discovery still earning its keep
+
+The mob and leader system was introduced at v0.0.18 to stop every zombie in a crowd
+running its own spatial scan. It has since been weakened twice to fix behavior it
+broke: full sharing collapsed mobs onto the same candidate, so v0.0.22 moved each
+member back to its own local selection against the cached index. Both a leader scan
+and a member selection call `findNearestEligibleZombie`, so much of the original
+saving has already been given back, while membership, leader election, active-probe
+arbitration and the wake queue are still paid for in full. Those have produced
+[#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11), the
+`mob-already-active` refusals, and the v0.0.45 retaliation latency.
+
+No measurement of the remaining benefit exists. This run supplies one. It needs no
+code change beyond the counters added in v0.0.46, and the shipped default for
+`ZombieFactions.ZombieMobSize` is already `1`, so individual acquisition is not an
+experimental mode.
+
+Run the **same scenario twice**, changing only `ZombieMobSize`, restarting the server
+between runs, and snapshotting the client log after each. Use 240 Red against 240
+mutually hostile Vanilla, spawned at radius 3–4, left to fight for at least 90 seconds
+without administrator movement.
+
+1. `ZombieMobSize = 8` — the current tested configuration.
+2. `ZombieMobSize = 1` — one zombie per mob, each acquiring for itself.
+
+Compare these, all in `[ZombieFactions][SERVER_PERF]`:
+
+| Field | What it answers |
+| --- | --- |
+| `candidateScans` | Every full spatial scan, whichever path asked for it. This is the cost the mob exists to reduce, and the only honest measure of it. |
+| `acquisitionMsTotal`, `acquisitionMsMax`, `acquisitionSlowPasses` | Wall-clock cost of the server faction pass. Resolution is coarse, so a single pass usually rounds to zero; the totals are what matter and they grow with real load. |
+| `grants`, `releases` | Whether individual acquisition multiplies grant traffic, which is the [#8](https://github.com/jonathanjacobs/pz-zombie-factions/issues/8) risk. |
+| `damageRequests`, `damageAccepted` | Whether combat outcome is equivalent. If size 1 fights as well, the comparison is about cost alone. |
+| `dormant`, `active` | Whether size 1 strands fewer members, as the #11 analysis predicts. |
+| `memberSelections`, `leaderScans` | How the scan total splits. At size 1 all scans are individual by definition. |
+
+The result decides an architectural question rather than a tuning value. If size 1 holds
+up, the mob layer can be removed, which closes #11 outright and makes retaliation
+straightforward, since each recruit would get its own probe by construction. If size 8
+is materially cheaper, the layer stays and retaliation is fixed within it — and the
+better shape then is a per-bucket scan cache rather than persistent mobs, since a cache
+shares the result without a leader to elect, a membership to maintain, or anyone to
+strand.
+
+Record client FPS by observation for each run; the server counters do not capture it.
+
 ## Issue #1 distance-envelope matrix
 
 Version 0.0.35 exposes two diagnostic sandbox options, both measured in planar tiles:

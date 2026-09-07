@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.46 — 2026-09-07
+
+Adds the measurements needed to decide whether the mob and leader layer is still worth its cost. No behavior change.
+
+- counts every full spatial scan as `candidateScans`, incremented inside `findNearestEligibleZombie` itself rather than at a call site, so leader scans and per-member selections are both captured. The existing `leaderScans` and `memberSelections` only describe which path asked;
+- times the server faction pass as `acquisitionMsTotal`, `acquisitionMsMax` and `acquisitionSlowPasses`. Wall-clock resolution is coarse enough that a single pass usually rounds to zero, so the totals are the meaningful figures and they grow with real load;
+- reports the effective `zombieMobSize` in each summary, so a comparison run cannot be misattributed later;
+- adds the comparison procedure to `docs/TESTING.md`. The mob layer was introduced at v0.0.18 for performance and weakened twice afterwards to fix behavior it broke, and the remaining benefit has never been measured.
+
 ## 0.0.45 — 2026-09-06
 
 Unvalidated `NEUTRAL` retaliation. Previously `NEUTRAL` rejected targeting outright in every case, so the framework offered three relationship types and delivered two: nothing ever fought back.

@@ -11,7 +11,7 @@ local SPEED = ZombieFactions.SpeedType
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.45")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.46")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
