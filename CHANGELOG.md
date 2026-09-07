@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.47 — 2026-09-07
+
+Fixes a v0.0.46 defect that suppressed every server performance summary and invalidated the mob-size comparison run.
+
+- moves `zombieMobSize()` above `printPerformanceSummary()`. v0.0.46 added a call to it from the summary, but it was declared several hundred lines later, so inside that earlier function body the name resolved to a nil global and every summary threw. The static format-arity check cannot catch this, since the call site is syntactically valid;
+- the throw also aborted `onTick` before mob maintenance, wakeup processing, retaliation ticking and probe updates, so one tick in every summary interval silently did no work at all;
+- isolates the summary in a `pcall` and reports the failure instead. Diagnostics should never be able to stop the tick doing real work, which is what turned a scoping mistake into a lost run rather than a visible error.
+
 ## 0.0.46 — 2026-09-07
 
 Adds the measurements needed to decide whether the mob and leader layer is still worth its cost. No behavior change.

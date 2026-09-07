@@ -86,7 +86,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.46 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.47 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -117,6 +117,18 @@ local function performanceAverage(totalName, sampleName)
     local samples = performanceValue(sampleName)
     if samples <= 0 then return 0 end
     return performanceValue(totalName) / samples
+end
+
+-- Defined here rather than beside the other sandbox accessors below, because the
+-- performance summary reads it. A local declared later is not in scope for an
+-- earlier function body and resolves to a nil global instead.
+local function zombieMobSize()
+    local options = SandboxVars and SandboxVars.ZombieFactions
+    local value = options and tonumber(options.ZombieMobSize) or 1
+    if not value then return 1 end
+    value = math.floor(value)
+    if value < 0 then return 0 end
+    return value
 end
 
 local function printPerformanceSummary()
@@ -665,15 +677,6 @@ local function pendingProbeForMobId(mobId)
         if record.mobId == mobId then return record end
     end
     return nil
-end
-
-local function zombieMobSize()
-    local options = SandboxVars and SandboxVars.ZombieFactions
-    local value = options and tonumber(options.ZombieMobSize) or 1
-    if not value then return 1 end
-    value = math.floor(value)
-    if value < 0 then return 0 end
-    return value
 end
 
 local function mobRecruitmentRadius()
@@ -2247,7 +2250,13 @@ local function onTick()
     performanceSummaryCountdown = performanceSummaryCountdown - 1
     if performanceSummaryCountdown <= 0 then
         performanceSummaryCountdown = PERFORMANCE_SUMMARY_TICKS
-        printPerformanceSummary()
+        -- Isolated: a fault in diagnostics must never stop the tick doing real work.
+        -- A scoping mistake here silently cost an entire comparison run at v0.0.46,
+        -- because the throw aborted onTick before mob maintenance and probe updates.
+        local summaryOk, summaryErr = pcall(printPerformanceSummary)
+        if not summaryOk then
+            alwaysPrint("[ZombieFactions][SERVER_PERF] summary failed: " .. tostring(summaryErr))
+        end
     end
 
     if ZombieFactions.TargetProbeDiscoveryIndexTicks > 0 then
