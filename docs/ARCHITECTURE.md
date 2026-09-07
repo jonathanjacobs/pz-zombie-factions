@@ -43,9 +43,13 @@ The accepted authority boundary is recorded in [`adr/ADR-001-zombie-combat-autho
 
 The protocol is pair-specific and state-change-driven. Ownership changes, death, pooled-object reuse, policy changes, invalid distance/level, explicit release, and no-progress recovery invalidate or replace grants. Client polling alone does not create damage authority.
 
-## Mob discovery
+## Discovery
 
-Stable server-runtime mobs cap membership through `ZombieFactions.ZombieMobSize`. A leader performs bounded discovery; followers receive one bounded, load-aware selection when contact begins. Multiple attackers may share a target, while soft assignment penalties and approach positions reduce crowd clumping. Event-driven wake-up and recovery remain bounded.
+Each zombie acquires its own target through its own probe and its own grant. There is no membership, leader election, shared-target arbitration or maintenance sweep. Soft assignment penalties and per-zombie approach offsets continue to reduce crowd clumping; target-load balancing is global rather than per-group and is unaffected.
+
+This replaces the mob-and-leader model used from v0.0.18, on the measurement recorded in [`adr/ADR-002-direct-acquisition.md`](adr/ADR-002-direct-acquisition.md): direct acquisition cost about 28% less per unit of combat, its worst server pass was roughly a quarter as long, and peak dormant members fell from 420 to zero.
+
+`ZombieFactions.DirectAcquisition` defaults to on. Turning it off restores the mob path, which is retained for comparison and is otherwise unused; `ZombieFactions.ZombieMobSize` applies only in that case. ADR-002 audits the code that exists solely for it, ahead of removal.
 
 ## Combat presentation
 

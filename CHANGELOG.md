@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.52 — 2026-09-07
+
+Direct acquisition becomes the default, replacing mob-and-leader targeting ([ADR-002](docs/adr/ADR-002-direct-acquisition.md)).
+
+- each zombie acquires its own target through its own probe. No membership, leader election, shared-target arbitration or maintenance sweep;
+- based on a v0.0.51 comparison at 240 against 240: direct acquisition cost `6.20ms` per damage request against mob size 8's `8.60ms`, its worst single server pass was `30ms` against `115ms`, and peak dormant members were `0` against `420`. Mob size 8 did perform the fewest scans, which indicates the scans were never the expensive part;
+- `ZombieMobSize` now applies only when direct acquisition is turned off. The mob path is retained, unused, for comparison; ADR-002 audits the roughly 458 lines that exist solely for it;
+- combat behavior is unchanged. Posture selection contains no mob reference at all, so standing bites, crawler lunges, stomps and sitting get-up are untouched, and sprint braking lives in the pursuit controller rather than in acquisition;
+- `NEUTRAL` retaliation improves without further work, since recruits now receive their own pinned probes instead of waiting to be selected by mob machinery, which caused the v0.0.45 latency;
+- the runtime default matches the sandbox default and the sandbox is read once at load, so the mob path no longer runs during the window before the first summary refresh.
+
 ## 0.0.51 — 2026-09-07
 
 Fixes two v0.0.50 defects that made Direct Acquisition unmeasurable. Found in the v0.0.50 server log, which recorded 2,372 runtime exceptions.

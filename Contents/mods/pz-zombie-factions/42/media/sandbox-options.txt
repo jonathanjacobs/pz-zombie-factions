@@ -69,7 +69,7 @@ option ZombieFactions.VerboseDiagnosticsClient
 option ZombieFactions.DirectAcquisition
 {
     type = boolean,
-    default = false,
+    default = true,
     page = ZombieFactions,
     translation = ZombieFactions_DirectAcquisition,
 }

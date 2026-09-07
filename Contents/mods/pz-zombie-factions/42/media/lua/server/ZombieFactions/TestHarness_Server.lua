@@ -64,7 +64,10 @@ local verboseDiagnostics = false
 -- measured it costing more than size 8 while performing fewer scans -- the cost
 -- tracked mob count, not scanning. Removing the layer is therefore a different
 -- proposition from shrinking it, and needs measuring separately.
-local directAcquisition = false
+-- Initialised to the sandbox default, because the refresh below runs on the summary
+-- interval and the first one is several seconds after load. Starting false would run
+-- the mob path for that window.
+local directAcquisition = true
 
 local function refreshVerboseDiagnostics()
     local options = SandboxVars and SandboxVars.ZombieFactions
@@ -107,7 +110,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.51 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.52 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -2740,4 +2743,7 @@ local function onClientCommand(module, command, player, args)
 end
 
 Events.OnClientCommand.Add(onClientCommand)
+-- Read the sandbox once at load rather than waiting for the first summary refresh.
+refreshVerboseDiagnostics()
+
 Events.OnTick.Add(onTick)
