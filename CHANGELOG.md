@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.48 — 2026-09-07
+
+Returns per-event diagnostics to their documented default of `false` on both sides.
+
+- `SERVER_VERBOSE_DIAGNOSTICS` and the client controller `verbose` flag were both left `true` at some earlier point, contrary to the practice recorded in `docs/TESTING.md`, and stayed that way through every run since. Per-event output is unbounded, and at roughly 3-4MB per minute during mass combat it repeatedly drove the client log past its in-place size limit, costing three sessions most of their client-side evidence;
+- the periodic `PERF`, `SPRINT_PERF` and `SERVER_PERF` summaries are unaffected and carry every measurement the current test procedures rely on.
+
 ## 0.0.47 — 2026-09-07
 
 Fixes a v0.0.46 defect that suppressed every server performance summary and invalidated the mob-size comparison run.

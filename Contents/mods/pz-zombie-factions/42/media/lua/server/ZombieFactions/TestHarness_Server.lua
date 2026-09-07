@@ -49,7 +49,7 @@ local DAMAGE_PROBE_COOLDOWN_TICKS = 10
 local DAMAGE_PROBE_ACK_TIMEOUT_TICKS = 120
 local DAMAGE_PROBE_HEALTH_EPSILON = 0.01
 local PERFORMANCE_SUMMARY_TICKS = 5 * SERVER_TICKS_PER_SECOND
-local SERVER_VERBOSE_DIAGNOSTICS = true
+local SERVER_VERBOSE_DIAGNOSTICS = false
 
 local function combatDistanceOption(name, fallback)
     local options = SandboxVars and SandboxVars.ZombieFactions
@@ -86,7 +86,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.47 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.48 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
