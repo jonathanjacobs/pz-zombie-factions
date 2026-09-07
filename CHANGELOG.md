@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.50 — 2026-09-07
+
+Adds `ZombieFactions.DirectAcquisition`, an experimental mode that bypasses the mob and leader layer so its cost can be measured against its benefit. Off by default; no change to normal behavior.
+
+- each zombie receives its own probe. Membership, leader election, shared-target arbitration and the maintenance sweep are all skipped, and `ZombieMobSize` is ignored;
+- exists because setting `ZombieMobSize` to `1` does not measure the same thing. The v0.0.49 comparison found size 1 costing `36,069ms` of server acquisition time against size 8's `15,414ms` while performing fewer full scans, `2,968` against `4,390`. The dominant cost tracks mob count rather than scan count, and size 1 creates one mob per zombie, so it pays full bookkeeping for no shared discovery. Removal is a different proposition from shrinking;
+- reports `directAcquisition` and `directQueued` in every summary, so phases can be separated after the fact rather than by timing;
+- two consequences worth measuring alongside the cost: [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11) is a mob-arbitration defect and cannot occur without mobs, and Neutral retaliation recruits receive their own pinned probes instead of waiting to be selected, which is what made them slow to engage in v0.0.45.
+
 ## 0.0.49 — 2026-09-07
 
 Makes per-event diagnostics a sandbox option instead of a source constant.

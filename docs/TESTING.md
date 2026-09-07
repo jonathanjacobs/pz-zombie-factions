@@ -267,15 +267,55 @@ Compare these, all in `[ZombieFactions][SERVER_PERF]`:
 | `dormant`, `active` | Whether size 1 strands fewer members, as the #11 analysis predicts. |
 | `memberSelections`, `leaderScans` | How the scan total splits. At size 1 all scans are individual by definition. |
 
-The result decides an architectural question rather than a tuning value. If size 1 holds
-up, the mob layer can be removed, which closes #11 outright and makes retaliation
-straightforward, since each recruit would get its own probe by construction. If size 8
-is materially cheaper, the layer stays and retaliation is fixed within it — and the
-better shape then is a per-bucket scan cache rather than persistent mobs, since a cache
-shares the result without a leader to elect, a membership to maintain, or anyone to
-strand.
-
 Record client FPS by observation for each run; the server counters do not capture it.
+
+### What the first attempt showed, and why size 1 is not the comparison
+
+A v0.0.49 run measured mob size 8 against size 1. Size 1 cost 36,069ms of server
+acquisition time against 15,414ms, with a worse peak pass, while performing *fewer*
+full scans: 2,968 against 4,390. Per member the gap narrows but holds, and the scan
+figures invert.
+
+So the dominant cost tracks the number of mobs, not the number of scans. Size 1 creates
+one mob per zombie — 720 of them against 60 — and the maintenance sweep walks every mob
+every second regardless of what is in it.
+
+That makes size 1 the worst available configuration rather than a proxy for removal: it
+pays the full mob bookkeeping while getting no shared discovery at all. It cannot answer
+whether removing the layer would be cheaper, because removal deletes the bookkeeping
+that turned out to be the expensive part.
+
+Treat that run as evidence about mob overhead, not as a verdict on the architecture. The
+populations were also unmatched (720 against 480, with an uneven faction split), so its
+combat figures should be held loosely.
+
+### The actual comparison: Direct Acquisition
+
+`ZombieFactions.DirectAcquisition` bypasses the layer rather than shrinking it. Each
+zombie receives its own probe; membership, leader election, shared-target arbitration
+and the maintenance sweep are all skipped, and `ZombieMobSize` is ignored.
+
+Run the same scenario twice with matched populations, restarting or clearing between so
+neither phase inherits the other's survivors:
+
+1. `DirectAcquisition = off`, `ZombieMobSize = 8` — current architecture.
+2. `DirectAcquisition = on` — no mob layer.
+
+Each summary reports `directAcquisition=` and `directQueued=`, so the phases can be
+separated afterwards without relying on timing. Compare the same fields as above,
+`acquisitionMsTotal` being the one the question turns on.
+
+Two secondary results worth capturing. `dormant` should stay near zero under direct
+acquisition, since [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11)
+is a mob-arbitration defect that cannot occur without mobs. And Neutral retaliation
+recruits receive their own pinned probes instead of waiting to be selected by mob
+machinery, so if retaliation is enabled its response should be visibly faster than the
+v0.0.45 run, where recruits took twenty seconds to several minutes to engage.
+
+If direct acquisition is cheaper, the layer can be removed and both of those follow for
+free. If the mob layer is genuinely cheaper at scale, it stays, and the better shape is
+a per-bucket scan cache rather than persistent mobs — a cache shares a result without a
+leader to elect, a membership to maintain, or anyone to strand.
 
 ## Issue #1 distance-envelope matrix
 

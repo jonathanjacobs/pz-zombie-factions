@@ -55,9 +55,21 @@ local PERFORMANCE_SUMMARY_TICKS = 5 * SERVER_TICKS_PER_SECOND
 -- interval so the read is not on the per-message path.
 local verboseDiagnostics = false
 
+-- Experimental. When on, acquisition skips the mob and leader layer entirely: each
+-- zombie gets its own probe, and membership, leader election, shared-target
+-- arbitration and the maintenance sweep are all bypassed.
+--
+-- This exists because setting Zombie Mob Size to 1 does not measure the same thing.
+-- That still runs the full mob machinery, once per zombie, and a v0.0.49 comparison
+-- measured it costing more than size 8 while performing fewer scans -- the cost
+-- tracked mob count, not scanning. Removing the layer is therefore a different
+-- proposition from shrinking it, and needs measuring separately.
+local directAcquisition = false
+
 local function refreshVerboseDiagnostics()
     local options = SandboxVars and SandboxVars.ZombieFactions
     verboseDiagnostics = options ~= nil and options.VerboseDiagnosticsServer == true
+    directAcquisition = options ~= nil and options.DirectAcquisition == true
 end
 
 local function combatDistanceOption(name, fallback)
@@ -95,7 +107,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.49 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.50 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -156,7 +168,7 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -202,7 +214,9 @@ local function printPerformanceSummary()
         performanceValue("candidateScans"),
         performanceValue("acquisitionMsTotal"),
         performanceValue("acquisitionMsMax"),
-        performanceValue("acquisitionSlowPasses")
+        performanceValue("acquisitionSlowPasses"),
+        tostring(directAcquisition),
+        performanceValue("directQueued")
     ))
     performanceCounters = {}
 end
@@ -997,6 +1011,37 @@ local function refreshPendingLeader(record)
 end
 
 queueTargetSubject = function(subject, runId, requester, remaining, reason, delay, avoidCandidateId, preferredCandidate)
+    if directAcquisition then
+        -- One probe for the zombie that was actually asked about, rather than for
+        -- whichever zombie currently leads its mob. This also removes the reason
+        -- Neutral retaliation recruits were slow to engage: they now receive their
+        -- own pinned probe instead of waiting to be selected by mob machinery.
+        local directId = zombieOnlineId(subject)
+        if directId == -1 or isDead(subject) then return false, "subject-unavailable" end
+        if subjectHasProbe(subject) or pendingProbeForSubjectId(directId) then
+            return false, "subject-already-queued"
+        end
+
+        ZombieFactions.PendingTargetProbes[#ZombieFactions.PendingTargetProbes + 1] = {
+            runId = runId,
+            requester = requester,
+            subject = subject,
+            subjectId = directId,
+            remaining = remaining or 0,
+            persistent = TARGET_PROBE_PERSISTENT,
+            scanCountdown = delay or TARGET_PROBE_DELAY_TICKS,
+            scanAttempts = 0,
+            reason = reason or "spawn",
+            sourceFaction = ZombieFactions.getZombieFaction(subject),
+            avoidCandidateId = avoidCandidateId,
+            preferredCandidate = preferredCandidate,
+            mob = nil,
+            mobId = 0,
+        }
+        countPerformance("directQueued")
+        return true, "direct-acquisition"
+    end
+
     local mob, _, membershipReason = ensureStableMobMembership(subject, runId, requester)
     if not mob then return false, membershipReason end
     local leaderMember = chooseMobLeader(mob, reason or "queue")
@@ -1522,14 +1567,14 @@ local function beginOwnerTargetProbe(record, index, targetLoads)
     end
 
     local mob = record.mob or stableMobBySubjectId(subjectId)
-    if not mob then return "terminal" end
+    if not mob and not directAcquisition then return "terminal" end
     local active = activateTargetProbe(
         record,
         candidate,
         sourceFaction,
         targetFaction,
         relationship,
-        mob.id,
+        mob and mob.id or 0,
         subjectId,
         1,
         record.reason == "spawn" and "acquired" or tostring(record.reason)
@@ -2273,12 +2318,17 @@ local function onTick()
         ZombieFactions.TargetProbeDiscoveryIndexTicks = ZombieFactions.TargetProbeDiscoveryIndexTicks - 1
     end
 
-    mobMaintenanceCountdown = mobMaintenanceCountdown - 1
-    if mobMaintenanceCountdown <= 0 then
-        mobMaintenanceCountdown = MOB_MAINTENANCE_INTERVAL_TICKS
-        maintainStableMobs()
+    -- Skipped wholesale under direct acquisition. The v0.0.49 comparison indicated
+    -- the dominant server cost tracks mob count rather than scan count, so this
+    -- sweep and the wakeup queue are the part actually being measured.
+    if not directAcquisition then
+        mobMaintenanceCountdown = mobMaintenanceCountdown - 1
+        if mobMaintenanceCountdown <= 0 then
+            mobMaintenanceCountdown = MOB_MAINTENANCE_INTERVAL_TICKS
+            maintainStableMobs()
+        end
+        processPendingMobWakeups()
     end
-    processPendingMobWakeups()
     updateRetaliations()
 
     for i = #ZombieFactions.PendingAssignmentValidations, 1, -1 do

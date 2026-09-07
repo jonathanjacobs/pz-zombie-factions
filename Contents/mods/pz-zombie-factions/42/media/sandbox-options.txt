@@ -65,3 +65,11 @@ option ZombieFactions.VerboseDiagnosticsClient
     page = ZombieFactions,
     translation = ZombieFactions_VerboseDiagnosticsClient,
 }
+
+option ZombieFactions.DirectAcquisition
+{
+    type = boolean,
+    default = false,
+    page = ZombieFactions,
+    translation = ZombieFactions_DirectAcquisition,
+}
