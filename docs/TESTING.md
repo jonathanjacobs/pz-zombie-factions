@@ -23,10 +23,14 @@ Two independent facilities produce evidence. Enable the mod's own diagnostics fi
 
 Per-event mod logging is suppressed by default, leaving only the periodic `[ZombieFactions][PERF]` and `[ZombieFactions][SERVER_PERF]` summaries. To capture per-event `ACQUISITION_PROBE`, `OWNER_PROBE`, `MOB`, `FACTION_IMPACT`, and `DAMAGE_PROBE` lines:
 
-- Server: set `SERVER_VERBOSE_DIAGNOSTICS = true` in `TestHarness_Server.lua`.
-- Client: set `verbose = true` in the `ClientCombatController.lua` controller table.
+- `ZombieFactions.VerboseDiagnosticsServer` — server-side acquisition, grant, mob and damage decisions.
+- `ZombieFactions.VerboseDiagnosticsClient` — owner-side pursuit and impact decisions.
 
-Both default to `false` and neither has an in-game toggle. Redeploy to the local and server mod folders and restart both sides. Return both to `false` before any crowd run or release build; per-event output is unbounded and will bury the summaries it exists to explain.
+Both are sandbox options from v0.0.48 and both default to off. They were previously source constants with no in-game toggle, which is how they came to be left enabled across several sessions without anyone noticing.
+
+Enable the server side freely when diagnosing a specific defect; the server log has no size cap and has held complete multi-megabyte sessions.
+
+Treat the client side as a deliberate, short-run choice. Its output is unbounded and was measured at 3–4MB per minute during mass combat, which drives the client `DebugLog.txt` past the size at which the game empties it in place. Three separate sessions lost most of their client-side evidence that way, including a mob-size comparison run where the surviving fragments covered about ninety seconds each. Every measurement the current procedures rely on lives in the periodic summaries, so leaving the client side off costs nothing for ordinary runs.
 
 ### Game logging
 

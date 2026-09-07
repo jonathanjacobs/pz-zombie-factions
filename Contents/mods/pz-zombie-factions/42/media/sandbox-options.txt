@@ -49,3 +49,19 @@ option ZombieFactions.RetaliationSeconds
     page = ZombieFactions,
     translation = ZombieFactions_RetaliationSeconds,
 }
+
+option ZombieFactions.VerboseDiagnosticsServer
+{
+    type = boolean,
+    default = false,
+    page = ZombieFactions,
+    translation = ZombieFactions_VerboseDiagnosticsServer,
+}
+
+option ZombieFactions.VerboseDiagnosticsClient
+{
+    type = boolean,
+    default = false,
+    page = ZombieFactions,
+    translation = ZombieFactions_VerboseDiagnosticsClient,
+}

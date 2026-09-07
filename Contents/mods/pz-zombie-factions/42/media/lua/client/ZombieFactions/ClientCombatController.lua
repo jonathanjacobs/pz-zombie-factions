@@ -59,6 +59,17 @@ function controller.setVerbose(enabled)
     controller.verbose = enabled == true
 end
 
+-- Read from the sandbox rather than hardcoded. This was a source constant that had
+-- been left enabled for weeks without anyone noticing, and per-event output here is
+-- heavy enough to push the client log past the size at which the game empties it in
+-- place. Refreshed once per summary interval, since SandboxVars is not reliably
+-- populated at file load time.
+local function refreshVerbose()
+    local options = SandboxVars and SandboxVars.ZombieFactions
+    if options == nil then return end
+    controller.verbose = options.VerboseDiagnosticsClient == true
+end
+
 function controller.authorizeMelee(subjectId, candidateId)
     subjectId = tonumber(subjectId)
     candidateId = tonumber(candidateId)
@@ -253,6 +264,7 @@ local function onTick()
 
     if controller.summaryCountdown <= 0 then
         controller.summaryCountdown = SUMMARY_INTERVAL_TICKS
+        refreshVerbose()
         printSummary()
     end
 end

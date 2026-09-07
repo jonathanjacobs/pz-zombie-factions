@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.49 — 2026-09-07
+
+Makes per-event diagnostics a sandbox option instead of a source constant.
+
+- adds `ZombieFactions.VerboseDiagnosticsServer` and `ZombieFactions.VerboseDiagnosticsClient`, both defaulting to off. They were previously constants in two source files with no in-game toggle, which is how they came to be left enabled across several sessions without anyone noticing;
+- kept as two options rather than one because the sides are not equivalent. The server log has no size cap and can be left verbose freely; the client log is emptied in place once it grows too large, so its per-event output is a deliberate short-run choice;
+- each side caches the value and refreshes it once per summary interval, so the sandbox read is never on the per-message path.
+
 ## 0.0.48 — 2026-09-07
 
 Returns per-event diagnostics to their documented default of `false` on both sides.

@@ -49,7 +49,16 @@ local DAMAGE_PROBE_COOLDOWN_TICKS = 10
 local DAMAGE_PROBE_ACK_TIMEOUT_TICKS = 120
 local DAMAGE_PROBE_HEALTH_EPSILON = 0.01
 local PERFORMANCE_SUMMARY_TICKS = 5 * SERVER_TICKS_PER_SECOND
-local SERVER_VERBOSE_DIAGNOSTICS = false
+-- Read from the sandbox rather than hardcoded. This was a source constant that had
+-- been left enabled for weeks without anyone noticing, and per-event output is heavy
+-- enough that leaving it on costs whole runs. Cached and refreshed once per summary
+-- interval so the read is not on the per-message path.
+local verboseDiagnostics = false
+
+local function refreshVerboseDiagnostics()
+    local options = SandboxVars and SandboxVars.ZombieFactions
+    verboseDiagnostics = options ~= nil and options.VerboseDiagnosticsServer == true
+end
 
 local function combatDistanceOption(name, fallback)
     local options = SandboxVars and SandboxVars.ZombieFactions
@@ -86,13 +95,13 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.48 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.49 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
 
 local function print(message)
-    if SERVER_VERBOSE_DIAGNOSTICS then alwaysPrint(message) end
+    if verboseDiagnostics then alwaysPrint(message) end
 end
 
 local performanceCounters = {}
@@ -2250,6 +2259,7 @@ local function onTick()
     performanceSummaryCountdown = performanceSummaryCountdown - 1
     if performanceSummaryCountdown <= 0 then
         performanceSummaryCountdown = PERFORMANCE_SUMMARY_TICKS
+        refreshVerboseDiagnostics()
         -- Isolated: a fault in diagnostics must never stop the tick doing real work.
         -- A scoping mistake here silently cost an entire comparison run at v0.0.46,
         -- because the throw aborted onTick before mob maintenance and probe updates.
