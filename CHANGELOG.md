@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.55 — 2026-09-08
+
+Fixes [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10), the close-range stall between two zombies.
+
+- each pursuer walks to a point offset around its target rather than at it, so a crowd does not converge on one square. The offset is chosen by a seed built from the two online IDs plus two mob terms, and under direct acquisition those mob terms are constants — so the seed, and therefore the geometry, is fixed for the life of a pair. A pair whose two offsets point around each other orbits instead of closing, and a no-progress reacquisition re-grants the same pair, recomputes the same seed and rebuilds the same failing approach;
+- a v0.0.54 session recorded one pair doing exactly that nineteen times in a row. Across 55 observations it was never seen closer than `0.66` tiles against a `MELEE_COMMITMENT_DISTANCE` of `0.65`, with 14 of those observations sitting in the 0.60–0.70 band, and it landed one impact request in the whole sequence;
+- the client now counts approaches abandoned for lack of progress against the current candidate and mixes that count into the seed, so each retry starts from a different slot. The multiplier is coprime with the slot count, so successive retries walk the ring rather than landing on a few positions. The count is held one entry per subject, which bounds it by the zombie population and prunes itself when the subject is granted a different candidate, and it is cleared once the pair reaches melee commitment;
+- `approachRetryOffsets` reports how many grants were built from a moved offset;
+- this is the entropy loss [ADR-002](docs/adr/ADR-002-direct-acquisition.md) recorded when it removed the mob terms, and which it flagged as worth watching. It appeared as a stall specific ID pairings could not escape rather than as the clumping anticipated there;
+- the sprinter-only braking added in v0.0.42 through v0.0.44 addressed the sprinter form of this stall. The shambler form was never fixed and is what this change addresses.
+
 ## 0.0.54 — 2026-09-07
 
 Fixes two defects found by the v0.0.53 relationship and posture runs.

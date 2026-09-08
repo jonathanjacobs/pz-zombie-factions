@@ -174,7 +174,7 @@ local function printSummary()
     ))
 
     print(string.format(
-        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d clientCollisionDistance=%.2f serverValidationDistance=%.2f controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d nativeZombieTargetsCleared=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d attackPresentationsArmed=%d attackPresentationsSuppressed=%d attackPresentationsExpired=%d crawlerLungesArmed=%d crawlerLungeImpacts=%d stompsArmed=%d stompImpacts=%d sittingStompsArmed=%d sittingStompImpacts=%d attackSoundsPlayed=%d attackSoundsSuppressed=%d stompSoundsPlayed=%d stompSoundsSuppressed=%d crawlerHitReactionsArmed=%d crawlerBiteReactionsArmed=%d sittingDefendersAlerted=%d sittingDefendersStood=%d sittingGetupsExpired=%d sittingGetupLocksArmed=%d sittingGetupAttackPauses=%d sittingGetupLocksReleased=%d sittingGetupLocksExpired=%d attackProfileChanges=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d biteSoundsPlayed=%d biteSoundsSuppressed=%d hitReactionsArmed=%d hitReactionsSuppressed=%d hitReactionsExpired=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d pendingGrants=%d grantResolveTimeouts=%d",
+        "[ZombieFactions][PERF] trackedTargets=%d trackedImpacts=%d clientCollisionDistance=%.2f serverValidationDistance=%.2f controllerPasses=%d zombieIndexBuilds=%d pursuitCommands=%d engagements=%d meleeCommitments=%d targetReattachments=%d reattachBackoffs=%d nativeZombieTargetsCleared=%d stuckReacquires=%d obstacleChecks=%d obstacleCacheHits=%d attackPresentationsArmed=%d attackPresentationsSuppressed=%d attackPresentationsExpired=%d crawlerLungesArmed=%d crawlerLungeImpacts=%d stompsArmed=%d stompImpacts=%d sittingStompsArmed=%d sittingStompImpacts=%d attackSoundsPlayed=%d attackSoundsSuppressed=%d stompSoundsPlayed=%d stompSoundsSuppressed=%d crawlerHitReactionsArmed=%d crawlerBiteReactionsArmed=%d sittingDefendersAlerted=%d sittingDefendersStood=%d sittingGetupsExpired=%d sittingGetupLocksArmed=%d sittingGetupAttackPauses=%d sittingGetupLocksReleased=%d sittingGetupLocksExpired=%d attackProfileChanges=%d biteBumpsArmed=%d biteBumpsSuppressed=%d biteBumpsExpired=%d biteCollisions=%d biteSoundsPlayed=%d biteSoundsSuppressed=%d hitReactionsArmed=%d hitReactionsSuppressed=%d hitReactionsExpired=%d presentationCues=%d presentationStarts=%d presentationSuppressed=%d presentationRetired=%d customAttackStarts=%d customAttackHits=%d customAttackCancels=%d invalidAttackBumpsRecovered=%d impactRequests=%d impactExactTarget=%d impactAuthorizedWithoutExact=%d impactNoAuthorization=%d impactBudgetDeferred=%d impactOutOfRange=%d impactUnsafe=%d safetySuspends=%d safetyResumes=%d releases=%d pendingGrants=%d grantResolveTimeouts=%d approachRetryOffsets=%d",
         trackedTargets,
         trackedImpacts,
         gauge("clientCollisionDistance"),
@@ -241,7 +241,8 @@ local function printSummary()
         metric("safetyResumes"),
         metric("releases"),
         gauge("pendingGrants"),
-        metric("grantResolveTimeouts")
+        metric("grantResolveTimeouts"),
+        metric("approachRetryOffsets")
     ))
     controller.counters = {}
 end

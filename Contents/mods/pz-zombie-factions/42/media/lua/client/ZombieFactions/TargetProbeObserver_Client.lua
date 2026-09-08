@@ -55,7 +55,43 @@ local SPRINT_BRAKE_DISTANCE = 1.75
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.54")
+-- Per-subject count of approaches abandoned for lack of progress against the current
+-- candidate.
+--
+-- The approach offset below is a pure function of the two online IDs once the mob terms
+-- are constant, which they are under direct acquisition. A pair whose two offsets happen
+-- to point around each other orbits instead of closing, and because a no-progress
+-- reacquisition re-grants the same pair, it recomputes the identical seed and rebuilds
+-- the identical failing approach. A v0.0.54 session recorded one pair doing this
+-- nineteen times in a row, never observed closer than 0.66 tiles against a commitment
+-- distance of 0.65. Mixing this count into the seed moves the offset on every retry.
+--
+-- One entry per subject rather than per pair, so it is bounded by the zombie count and
+-- prunes itself when the subject is granted a different candidate.
+local approachRetries = {}
+
+local function noteApproachRetry(subjectId, candidateId)
+    local entry = approachRetries[subjectId]
+    if entry and entry.candidateId == candidateId then
+        entry.count = entry.count + 1
+    else
+        approachRetries[subjectId] = { candidateId = candidateId, count = 1 }
+    end
+end
+
+local function approachRetryCount(subjectId, candidateId)
+    local entry = approachRetries[subjectId]
+    if entry and entry.candidateId == candidateId then return entry.count end
+    return 0
+end
+
+-- Reaching melee commitment means the geometry worked, so the pair starts clean if it
+-- ever stalls later.
+local function clearApproachRetries(subjectId)
+    approachRetries[subjectId] = nil
+end
+
+print("[ZombieFactions] Client target observer loaded v0.0.55")
 
 local function print(message)
     CombatController.detail(message)
@@ -698,6 +734,9 @@ local function requestReacquire(record)
         pcall(function() record.subject:setTarget(nil) end)
     end
     cancelCoordinatePath(record.subject)
+    -- Recorded before the request goes out, so that if the server hands this pair back
+    -- the approach is rebuilt from a different slot rather than the one that just failed.
+    noteApproachRetry(record.subjectId, record.candidateId)
     sendClientCommand(player, MODULE, REACQUIRE_COMMAND, {
         runId = record.runId,
         subjectId = record.subjectId,
@@ -785,12 +824,19 @@ local function beginOwnerProbe(record)
     record.noProgressTicks = 0
     record.noProgressLimit = NO_PROGRESS_BASE_TICKS
         + (math.abs(record.subjectId) % (NO_PROGRESS_STAGGER_TICKS + 1))
+    -- The retry term is what stops a failing approach repeating itself. Without it the
+    -- seed is fixed for the life of a pair, so every reacquisition rebuilds the same
+    -- geometry. The multiplier is coprime with APPROACH_SLOT_COUNT so successive
+    -- retries walk the slots rather than landing on a few of them.
+    local approachRetry = approachRetryCount(record.subjectId, record.candidateId)
     local approachSeed = math.abs(
         record.subjectId * 31
         + record.candidateId * 17
         + (record.mobId or 0) * 13
         + (record.mobMemberIndex or 1) * 7
+        + approachRetry * 5
     )
+    if approachRetry > 0 then CombatController.increment("approachRetryOffsets") end
     local approachSlot = approachSeed % APPROACH_SLOT_COUNT
     local approachAngle = (approachSlot / APPROACH_SLOT_COUNT) * math.pi * 2
     local approachRadius = math.floor(approachSeed / APPROACH_SLOT_COUNT) % 2 == 0
@@ -986,6 +1032,8 @@ local function updateTargetRecord(record, stepTicks)
         CombatController.authorizeMelee(record.subjectId, record.candidateId)
         if not record.meleeCommitted then
             CombatController.increment("meleeCommitments")
+            -- This approach converged, so the pair no longer carries a retry penalty.
+            clearApproachRetries(record.subjectId)
             -- Distance at the first authorisation of each engagement. If braking
             -- works this should sit inside the commitment band rather than the
             -- pair skipping past it.
