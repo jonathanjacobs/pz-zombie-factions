@@ -111,7 +111,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.55 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.56 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -172,7 +172,7 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d grantDeclines=%d retaliationRecruitsRefused=%d",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d grantDeclines=%d retaliationRecruitsRefused=%d identityChangeRecovered=%d identityChangeDropped=%d",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -222,7 +222,9 @@ local function printPerformanceSummary()
         tostring(directAcquisition),
         performanceValue("directQueued"),
         performanceValue("grantDeclines"),
-        performanceValue("retaliationRecruitsRefused")
+        performanceValue("retaliationRecruitsRefused"),
+        performanceValue("identityChangeRecovered"),
+        performanceValue("identityChangeDropped")
     ))
     performanceCounters = {}
 end
@@ -515,6 +517,10 @@ local function buildDiscoveryIndex()
     ZombieFactions.TargetProbeDiscoveryIndexSequence = ZombieFactions.TargetProbeDiscoveryIndexSequence + 1
     local index = {
         buckets = {},
+        -- Live zombies keyed by online identity, filled from the same pass that builds
+        -- the spatial buckets so it costs nothing extra. Used to tell a retained
+        -- reference that has gone stale apart from a zombie that has actually gone.
+        byId = {},
         loaded = 0,
         playerOnlineIds = activePlayerOnlineIds(),
         generation = ZombieFactions.TargetProbeDiscoveryIndexSequence,
@@ -542,6 +548,8 @@ local function buildDiscoveryIndex()
                 index.bucketCount = index.bucketCount + 1
             end
             bucket[#bucket + 1] = zombie
+            local onlineId = zombieOnlineId(zombie)
+            if onlineId ~= -1 then index.byId[onlineId] = zombie end
         end
     end
 
@@ -2485,14 +2493,36 @@ local function onTick()
         local currentSubjectId = zombieOnlineId(record.subject)
         local currentCandidateId = zombieOnlineId(record.candidate)
         if currentSubjectId ~= record.subjectId then
-            print(string.format(
-                "[ZombieFactions][%s][ACQUISITION_PROBE] phase=release reason=subject-identity-changed subject=%d candidate=%d actualSubject=%d action=drop-without-instruction",
-                record.runId,
-                record.subjectId,
-                record.candidateId,
-                currentSubjectId
-            ))
-            table.remove(ZombieFactions.ActiveTargetProbes, i)
+            -- A retained reference that stops reporting its own identity is not proof
+            -- the zombie is gone. Roughly half of these are alive: a v0.0.54 session
+            -- dropped 74 subjects this way, and 36 of them kept appearing as candidates
+            -- in other zombies' grants afterwards while never being granted a target
+            -- again. Re-resolve by online identity before concluding anything.
+            local resolved = getDiscoveryIndex().byId[record.subjectId]
+            if resolved and not isDead(resolved) then
+                record.subject = resolved
+                print(string.format(
+                    "[ZombieFactions][%s][ACQUISITION_PROBE] phase=release reason=subject-identity-changed subject=%d candidate=%d actualSubject=%d action=re-resolve-and-requeue",
+                    record.runId,
+                    record.subjectId,
+                    record.candidateId,
+                    currentSubjectId
+                ))
+                sendTargetRelease(record, "subject-identity-changed")
+                table.remove(ZombieFactions.ActiveTargetProbes, i)
+                countPerformance("identityChangeRecovered")
+                requeueActiveSubject(record, "subject-identity-changed")
+            else
+                print(string.format(
+                    "[ZombieFactions][%s][ACQUISITION_PROBE] phase=release reason=subject-identity-changed subject=%d candidate=%d actualSubject=%d action=drop-without-instruction",
+                    record.runId,
+                    record.subjectId,
+                    record.candidateId,
+                    currentSubjectId
+                ))
+                table.remove(ZombieFactions.ActiveTargetProbes, i)
+                countPerformance("identityChangeDropped")
+            end
         elseif currentCandidateId ~= record.candidateId then
             print(string.format(
                 "[ZombieFactions][%s][ACQUISITION_PROBE] phase=release reason=candidate-identity-changed subject=%d candidate=%d actualCandidate=%d action=release-and-requeue",

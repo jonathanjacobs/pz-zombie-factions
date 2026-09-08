@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.56 — 2026-09-08
+
+Addresses the surviving half of [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11), the stranded member.
+
+- an active probe whose retained subject reference stops reporting its own online identity was removed outright, with no release and no requeue, on the assumption that the zombie had gone. Roughly half the time it had not: a v0.0.54 session dropped 74 subjects this way, and 36 of them went on appearing as candidates in other zombies' grants — alive, eligible, and in the server's own discovery index — while never being granted a target again for the rest of the run;
+- the discovery index now carries a `byId` map of live zombies, filled from the pass that already builds the spatial buckets, so it costs no extra iteration. An identity change re-resolves the subject through it: found and alive means the reference went stale rather than the zombie dying, so the record is re-pointed at the live object, released cleanly and requeued. Not found still drops as before, which is correct for a death;
+- `identityChangeRecovered` and `identityChangeDropped` report the split, which previously had to be reconstructed by hand from release lines;
+- the other half of that issue — a retaliation wake refused as `mob-already-active` — is unreachable under direct acquisition, and the same session confirms it: zero refusals, with `mobs=0 mobMembers=0 dormant=0` in every summary window.
+
 ## 0.0.55 — 2026-09-08
 
 Fixes [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10), the close-range stall between two zombies.

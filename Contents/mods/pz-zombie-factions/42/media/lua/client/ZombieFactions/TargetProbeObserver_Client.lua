@@ -91,7 +91,7 @@ local function clearApproachRetries(subjectId)
     approachRetries[subjectId] = nil
 end
 
-print("[ZombieFactions] Client target observer loaded v0.0.55")
+print("[ZombieFactions] Client target observer loaded v0.0.56")
 
 local function print(message)
     CombatController.detail(message)
