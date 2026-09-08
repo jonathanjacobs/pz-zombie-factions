@@ -1,28 +1,17 @@
 # Research links
 
-External reference sources for Project Zomboid Build 42 behavior. These are
-citations, not redistributed content — see [`PZ_MODDING_POLICY.md`](PZ_MODDING_POLICY.md)
-for the boundary between studying external material and copying it.
+External reference sources for Project Zomboid Build 42 behavior. These are citations, not redistributed content — see [`PZ_MODDING_POLICY.md`](PZ_MODDING_POLICY.md) for the boundary between studying external material and copying it.
 
 - Community wiki, Build 42.20.4: <https://pzwiki.net/wiki/Build_42.20.4>
 - Unofficial Javadocs, B42.20: <https://albion.codeberg.page/PZ-JavaDocs/zombie/package-summary.html>
 - Project Zomboid Wiki (main): <https://pzwiki.net/wiki/Project_Zomboid_Wiki>
 - Community discussion: <https://www.reddit.com/r/projectzomboid/>
 
-Local, gitignored copies (saved wiki pages, Discord/Reddit notes, other
-Workshop mods studied for implementation ideas) belong under
-[`../research-source/`](../research-source/), not here — this file is for
-stable links only.
+Local, gitignored copies (saved wiki pages, Discord/Reddit notes, other Workshop mods studied for implementation ideas) belong under [`../research-source/`](../research-source/), not here — this file is for stable links only.
 
 ## Mods studied for reference
 
-Other Steam Workshop mods examined for implementation *ideas* (not copied
-code or assets — see [`PZ_MODDING_POLICY.md`](PZ_MODDING_POLICY.md); public
-availability of a mod does not grant redistribution rights). Listed here for
-credit and traceability. If any code or asset is ever actually adapted or
-copied, it must instead be recorded in
-[`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) with full
-provenance before release.
+Other Steam Workshop mods examined for implementation *ideas* (not copied code or assets — see [`PZ_MODDING_POLICY.md`](PZ_MODDING_POLICY.md); public availability of a mod does not grant redistribution rights). Listed here for credit and traceability. If any code or asset is ever actually adapted or copied, it must instead be recorded in [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) with full provenance before release.
 
 | Mod | Author | What we looked at it for |
 | --- | --- | --- |

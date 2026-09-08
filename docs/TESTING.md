@@ -125,133 +125,52 @@ As a failure-path check, repeat once with a sitting defender that does not stand
 
 ## Version 0.0.40 sprinter locomotion matrix
 
-Version 0.0.40 adds a "Spawn speed" selector to the Horde Spawner. Its values are the
-shipped selectors: `1` sprinter, `2` fast shambler, `3` shambler, `4` random, plus a
-"Use sandbox speed" default that applies nothing. Selecting any explicit speed routes
-the spawn through the harness even for the Vanilla faction, because the vanilla
-asynchronous spawn returns no handle to apply a speed to.
+Version 0.0.40 adds a "Spawn speed" selector to the Horde Spawner. Its values are the shipped selectors: `1` sprinter, `2` fast shambler, `3` shambler, `4` random, plus a "Use sandbox speed" default that applies nothing. Selecting any explicit speed routes the spawn through the harness even for the Vanilla faction, because the vanilla asynchronous spawn returns no handle to apply a speed to.
 
-Use mob size `1`, the accepted `0.80` client / `1.60` server distances, clear level
-outdoor ground, and a spawn radius of 2–3 rather than 0 so the pair does not stack.
-Clear posture options left over from a previous case before every spawn. Confirm each
-spawn reports `speedApplied` and `speedVerified` equal to the requested count with
-`speedFailed=0` before drawing any conclusion from the run.
+Use mob size `1`, the accepted `0.80` client / `1.60` server distances, clear level outdoor ground, and a spawn radius of 2–3 rather than 0 so the pair does not stack. Clear posture options left over from a previous case before every spawn. Confirm each spawn reports `speedApplied` and `speedVerified` equal to the requested count with `speedFailed=0` before drawing any conclusion from the run.
 
-The decisive evidence is the `[ZombieFactions][SPRINT_PERF]` line, not visual
-impression. `sprintTilesPerSecond` must be materially above `shamblerTilesPerSecond`
-measured in the same run, with both sample counts non-trivial. From v0.0.41 both sides
-of every tracked pair are sampled while the engine reports them moving, so a shambler
-defender supplies the control without needing its own grant; a run that still reports
-`shamblerTravelSamples=0` had no moving shambler in it and cannot establish the
-comparison.
+The decisive evidence is the `[ZombieFactions][SPRINT_PERF]` line, not visual impression. `sprintTilesPerSecond` must be materially above `shamblerTilesPerSecond` measured in the same run, with both sample counts non-trivial. From v0.0.41 both sides of every tracked pair are sampled while the engine reports them moving, so a shambler defender supplies the control without needing its own grant; a run that still reports `shamblerTravelSamples=0` had no moving shambler in it and cannot establish the comparison.
 
-`sprintNodeLoopsPerSecond` separates "the mod asked for a sprint" from "the game
-actually played one". Expect roughly one to two loops per second while sprint intent
-is held. Zero means the node never won selection. Do not read the raw loop count on its
-own. Require `sprintVariableErrors=0` throughout.
+`sprintNodeLoopsPerSecond` separates "the mod asked for a sprint" from "the game actually played one". Expect roughly one to two loops per second while sprint intent is held. Zero means the node never won selection. Do not read the raw loop count on its own. Require `sprintVariableErrors=0` throughout.
 
-From v0.0.42, three counters cover braking. `sprintBrakeDistanceAvg` reports where
-sprint was actually dropped; it reads lower than the configured distance because the
-brake fires on the first pass at or inside it and a converging pair closes about `0.68`
-tiles per pass. `sprintMeleeAuthDistanceAvg` reports the pair distance at the first
-melee authorization of each engagement, and is the figure that shows whether braking
-worked — a v0.0.42 run recorded `0.51`–`0.54` where an unbraked pair had never been
-authorized at all. `sprintOvershoots` counts passes where a pair inside the engagement
-band got further apart while sprint was active, so it should stay near zero; before
-v0.0.43 it was gated on speed type rather than sprint state and also counted ordinary
-jostling at melee range.
+From v0.0.42, three counters cover braking. `sprintBrakeDistanceAvg` reports where sprint was actually dropped; it reads lower than the configured distance because the brake fires on the first pass at or inside it and a converging pair closes about `0.68` tiles per pass. `sprintMeleeAuthDistanceAvg` reports the pair distance at the first melee authorization of each engagement, and is the figure that shows whether braking worked — a v0.0.42 run recorded `0.51`–`0.54` where an unbraked pair had never been authorized at all. `sprintOvershoots` counts passes where a pair inside the engagement band got further apart while sprint was active, so it should stay near zero; before v0.0.43 it was gated on speed type rather than sprint state and also counted ordinary jostling at melee range.
 
-Per-event diagnostics are unbounded. Either disable them before any mass-combat phase
-or snapshot between phases; a v0.0.40 session lost all but its final 18 seconds of
-client log to the in-place cap described above, including the evidence for its own
-isolated pair cases.
+Per-event diagnostics are unbounded. Either disable them before any mass-combat phase or snapshot between phases; a v0.0.40 session lost all but its final 18 seconds of client log to the in-place cap described above, including the evidence for its own isolated pair cases.
 
-Run these cases separately, capturing logs per phase with
-[`../scripts/snapshot-client-log.ps1`](../scripts/snapshot-client-log.ps1):
+Run these cases separately, capturing logs per phase with [`../scripts/snapshot-client-log.ps1`](../scripts/snapshot-client-log.ps1):
 
-1. **Sprinter versus shambler.** One speed-`1` Red attacker against one sandbox-speed
-   Vanilla defender, Red-to-Vanilla `HOSTILE` and the reverse `FRIENDLY`. This is the
-   primary locomotion case and the source of the control figure. Confirm a visible
-   sprint during approach, a clean stop at contact, `STANDING_BITE`, and accepted
-   damage.
-2. **Sprinter versus sprinter.** Both sides speed `1`, mutually `HOSTILE`. Expect this
-   case to stress close-range convergence; a stall here that does not appear in case 1
-   belongs to [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10)
-   rather than to locomotion.
-3. **Sprinter versus crawler.** Speed-`1` attacker against an `isCrawler` defender.
-   Require `STANDING_STOMP` selection and accepted damage; the attacker's speed must
-   not change profile selection.
-4. **Sprinter versus sitting defender.** Speed-`1` attacker against an `isSitting`
-   defender. Require the v0.0.37 sequence unchanged: one stomp, get-up lock, native
-   get-up, then `STANDING_BITE` after the lock releases.
-5. **Player regression.** One speed-`1` Vanilla sprinter with the faction probe
-   disabled. Remove invisibility and confirm its ordinary player chase is unchanged.
-   Require `sprintActivations=0` for that phase, since the mod must not be requesting
-   anything.
+1. **Sprinter versus shambler.** One speed-`1` Red attacker against one sandbox-speed Vanilla defender, Red-to-Vanilla `HOSTILE` and the reverse `FRIENDLY`. This is the primary locomotion case and the source of the control figure. Confirm a visible sprint during approach, a clean stop at contact, `STANDING_BITE`, and accepted damage.
+2. **Sprinter versus sprinter.** Both sides speed `1`, mutually `HOSTILE`. Expect this case to stress close-range convergence; a stall here that does not appear in case 1 belongs to [#10](https://github.com/jonathanjacobs/pz-zombie-factions/issues/10) rather than to locomotion.
+3. **Sprinter versus crawler.** Speed-`1` attacker against an `isCrawler` defender. Require `STANDING_STOMP` selection and accepted damage; the attacker's speed must not change profile selection.
+4. **Sprinter versus sitting defender.** Speed-`1` attacker against an `isSitting` defender. Require the v0.0.37 sequence unchanged: one stomp, get-up lock, native get-up, then `STANDING_BITE` after the lock releases.
+5. **Player regression.** One speed-`1` Vanilla sprinter with the faction probe disabled. Remove invisibility and confirm its ordinary player chase is unchanged. Require `sprintActivations=0` for that phase, since the mod must not be requesting anything.
 
-A faction sprinter will not stumble the way a player-chasing sprinter does. The shipped
-trip roll requires a native target, which faction pursuit deliberately holds clear, so
-its absence is expected behavior in this build rather than a test failure. See
-[`spikes/SPIKE-005-sprinter-locomotion.md`](spikes/SPIKE-005-sprinter-locomotion.md).
+A faction sprinter will not stumble the way a player-chasing sprinter does. The shipped trip roll requires a native target, which faction pursuit deliberately holds clear, so its absence is expected behavior in this build rather than a test failure. See [`spikes/SPIKE-005-sprinter-locomotion.md`](spikes/SPIKE-005-sprinter-locomotion.md).
 
 ## Version 0.0.45 Neutral retaliation matrix
 
-Use mob size `8`, the accepted `0.80`/`1.60` distances, clear level ground, and the
-default `RetaliationRadius=8` / `RetaliationSeconds=60`. Server diagnostics on; the run
-is short enough that the client log will survive.
+Use mob size `8`, the accepted `0.80`/`1.60` distances, clear level ground, and the default `RetaliationRadius=8` / `RetaliationSeconds=60`. Server diagnostics on; the run is short enough that the client log will survive.
 
-Relationships: Red → Vanilla `HOSTILE`, Vanilla → Red `NEUTRAL`. Disable the symmetric
-mirror so the two directions differ.
+Relationships: Red → Vanilla `HOSTILE`, Vanilla → Red `NEUTRAL`. Disable the symmetric mirror so the two directions differ.
 
-The discriminating case is the third one. The first two only show that retaliation
-happens at all; the third is what proves hostility stayed individual.
+The discriminating case is the third one. The first two only show that retaliation happens at all; the third is what proves hostility stayed individual.
 
-1. **A Neutral zombie does not initiate.** Spawn one Vanilla and one Red about ten
-   tiles apart with the target probe enabled. The Red must attack; the Vanilla must not
-   attack first. Require `retaliationsFormed=0` until the first accepted hit lands.
-2. **A free victim answers.** After the first accepted hit, require `retaliationsFormed`
-   and `retaliationPinnedSelections` to increase, and the Vanilla to fight back against
-   the Red that hit it. Confirm the `RETALIATION` line reports `victimFree=true`.
-3. **Hostility does not spread.** Add a second Red that never attacks, standing within
-   the retaliation radius. The retaliating Vanilla must ignore it entirely. If it
-   attacks the second Red, hostility leaked to the faction and the design has failed.
-   This is the case worth repeating.
-4. **An engaged victim keeps its fight, friends answer.** Give the Vanilla a hostile of
-   its own to fight first, then have a Red hit it, with a spare free Vanilla within the
-   radius. The victim must not switch targets; the spare must retaliate. With no spare
-   in range, expect no retaliation at all — that is intended, not a failure.
-5. **It lapses.** Stop attacking and wait past `RetaliationSeconds`. Require
-   `retaliationsExpired` to increase, the retaliation grants to be released, and the
-   Vanilla to visibly disengage rather than finish the fight.
-6. **The timer refreshes.** Attack repeatedly at intervals shorter than the duration and
-   confirm `retaliationsRefreshed` increases while `retaliationsExpired` stays at zero.
+1. **A Neutral zombie does not initiate.** Spawn one Vanilla and one Red about ten tiles apart with the target probe enabled. The Red must attack; the Vanilla must not attack first. Require `retaliationsFormed=0` until the first accepted hit lands.
+2. **A free victim answers.** After the first accepted hit, require `retaliationsFormed` and `retaliationPinnedSelections` to increase, and the Vanilla to fight back against the Red that hit it. Confirm the `RETALIATION` line reports `victimFree=true`.
+3. **Hostility does not spread.** Add a second Red that never attacks, standing within the retaliation radius. The retaliating Vanilla must ignore it entirely. If it attacks the second Red, hostility leaked to the faction and the design has failed. This is the case worth repeating.
+4. **An engaged victim keeps its fight, friends answer.** Give the Vanilla a hostile of its own to fight first, then have a Red hit it, with a spare free Vanilla within the radius. The victim must not switch targets; the spare must retaliate. With no spare in range, expect no retaliation at all — that is intended, not a failure.
+5. **It lapses.** Stop attacking and wait past `RetaliationSeconds`. Require `retaliationsExpired` to increase, the retaliation grants to be released, and the Vanilla to visibly disengage rather than finish the fight.
+6. **The timer refreshes.** Attack repeatedly at intervals shorter than the duration and confirm `retaliationsRefreshed` increases while `retaliationsExpired` stays at zero.
 
-Throughout, require `damageProfileRejected=0`, `damageConfigMismatch=0`, and no Zombie
-Factions exception. Note how long recruits take to receive their first grant: they are
-picked up by the mob maintenance sweep, which runs once a second, so a visible delay of
-about that order is expected and anything much longer is worth reporting.
+Throughout, require `damageProfileRejected=0`, `damageConfigMismatch=0`, and no Zombie Factions exception. Note how long recruits take to receive their first grant: they are picked up by the mob maintenance sweep, which runs once a second, so a visible delay of about that order is expected and anything much longer is worth reporting.
 
 ## Mob-size comparison: is leader-shared discovery still earning its keep
 
-The mob and leader system was introduced at v0.0.18 to stop every zombie in a crowd
-running its own spatial scan. It has since been weakened twice to fix behavior it
-broke: full sharing collapsed mobs onto the same candidate, so v0.0.22 moved each
-member back to its own local selection against the cached index. Both a leader scan
-and a member selection call `findNearestEligibleZombie`, so much of the original
-saving has already been given back, while membership, leader election, active-probe
-arbitration and the wake queue are still paid for in full. Those have produced
-[#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11), the
-`mob-already-active` refusals, and the v0.0.45 retaliation latency.
+The mob and leader system was introduced at v0.0.18 to stop every zombie in a crowd running its own spatial scan. It has since been weakened twice to fix behavior it broke: full sharing collapsed mobs onto the same candidate, so v0.0.22 moved each member back to its own local selection against the cached index. Both a leader scan and a member selection call `findNearestEligibleZombie`, so much of the original saving has already been given back, while membership, leader election, active-probe arbitration and the wake queue are still paid for in full. Those have produced [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11), the `mob-already-active` refusals, and the v0.0.45 retaliation latency.
 
-No measurement of the remaining benefit exists. This run supplies one. It needs no
-code change beyond the counters added in v0.0.46, and the shipped default for
-`ZombieFactions.ZombieMobSize` is already `1`, so individual acquisition is not an
-experimental mode.
+No measurement of the remaining benefit exists. This run supplies one. It needs no code change beyond the counters added in v0.0.46, and the shipped default for `ZombieFactions.ZombieMobSize` is already `1`, so individual acquisition is not an experimental mode.
 
-Run the **same scenario twice**, changing only `ZombieMobSize`, restarting the server
-between runs, and snapshotting the client log after each. Use 240 Red against 240
-mutually hostile Vanilla, spawned at radius 3–4, left to fight for at least 90 seconds
-without administrator movement.
+Run the **same scenario twice**, changing only `ZombieMobSize`, restarting the server between runs, and snapshotting the client log after each. Use 240 Red against 240 mutually hostile Vanilla, spawned at radius 3–4, left to fight for at least 90 seconds without administrator movement.
 
 1. `ZombieMobSize = 8` — the current tested configuration.
 2. `ZombieMobSize = 1` — one zombie per mob, each acquiring for itself.
@@ -271,51 +190,28 @@ Record client FPS by observation for each run; the server counters do not captur
 
 ### What the first attempt showed, and why size 1 is not the comparison
 
-A v0.0.49 run measured mob size 8 against size 1. Size 1 cost 36,069ms of server
-acquisition time against 15,414ms, with a worse peak pass, while performing *fewer*
-full scans: 2,968 against 4,390. Per member the gap narrows but holds, and the scan
-figures invert.
+A v0.0.49 run measured mob size 8 against size 1. Size 1 cost 36,069ms of server acquisition time against 15,414ms, with a worse peak pass, while performing *fewer* full scans: 2,968 against 4,390. Per member the gap narrows but holds, and the scan figures invert.
 
-So the dominant cost tracks the number of mobs, not the number of scans. Size 1 creates
-one mob per zombie — 720 of them against 60 — and the maintenance sweep walks every mob
-every second regardless of what is in it.
+So the dominant cost tracks the number of mobs, not the number of scans. Size 1 creates one mob per zombie — 720 of them against 60 — and the maintenance sweep walks every mob every second regardless of what is in it.
 
-That makes size 1 the worst available configuration rather than a proxy for removal: it
-pays the full mob bookkeeping while getting no shared discovery at all. It cannot answer
-whether removing the layer would be cheaper, because removal deletes the bookkeeping
-that turned out to be the expensive part.
+That makes size 1 the worst available configuration rather than a proxy for removal: it pays the full mob bookkeeping while getting no shared discovery at all. It cannot answer whether removing the layer would be cheaper, because removal deletes the bookkeeping that turned out to be the expensive part.
 
-Treat that run as evidence about mob overhead, not as a verdict on the architecture. The
-populations were also unmatched (720 against 480, with an uneven faction split), so its
-combat figures should be held loosely.
+Treat that run as evidence about mob overhead, not as a verdict on the architecture. The populations were also unmatched (720 against 480, with an uneven faction split), so its combat figures should be held loosely.
 
 ### The actual comparison: Direct Acquisition
 
-`ZombieFactions.DirectAcquisition` bypasses the layer rather than shrinking it. Each
-zombie receives its own probe; membership, leader election, shared-target arbitration
-and the maintenance sweep are all skipped, and `ZombieMobSize` is ignored.
+`ZombieFactions.DirectAcquisition` bypasses the layer rather than shrinking it. Each zombie receives its own probe; membership, leader election, shared-target arbitration and the maintenance sweep are all skipped, and `ZombieMobSize` is ignored.
 
-Run the same scenario twice with matched populations, restarting or clearing between so
-neither phase inherits the other's survivors:
+Run the same scenario twice with matched populations, restarting or clearing between so neither phase inherits the other's survivors:
 
 1. `DirectAcquisition = off`, `ZombieMobSize = 8` — current architecture.
 2. `DirectAcquisition = on` — no mob layer.
 
-Each summary reports `directAcquisition=` and `directQueued=`, so the phases can be
-separated afterwards without relying on timing. Compare the same fields as above,
-`acquisitionMsTotal` being the one the question turns on.
+Each summary reports `directAcquisition=` and `directQueued=`, so the phases can be separated afterwards without relying on timing. Compare the same fields as above, `acquisitionMsTotal` being the one the question turns on.
 
-Two secondary results worth capturing. `dormant` should stay near zero under direct
-acquisition, since [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11)
-is a mob-arbitration defect that cannot occur without mobs. And Neutral retaliation
-recruits receive their own pinned probes instead of waiting to be selected by mob
-machinery, so if retaliation is enabled its response should be visibly faster than the
-v0.0.45 run, where recruits took twenty seconds to several minutes to engage.
+Two secondary results worth capturing. `dormant` should stay near zero under direct acquisition, since [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11) is a mob-arbitration defect that cannot occur without mobs. And Neutral retaliation recruits receive their own pinned probes instead of waiting to be selected by mob machinery, so if retaliation is enabled its response should be visibly faster than the v0.0.45 run, where recruits took twenty seconds to several minutes to engage.
 
-If direct acquisition is cheaper, the layer can be removed and both of those follow for
-free. If the mob layer is genuinely cheaper at scale, it stays, and the better shape is
-a per-bucket scan cache rather than persistent mobs — a cache shares a result without a
-leader to elect, a membership to maintain, or anyone to strand.
+If direct acquisition is cheaper, the layer can be removed and both of those follow for free. If the mob layer is genuinely cheaper at scale, it stays, and the better shape is a per-bucket scan cache rather than persistent mobs — a cache shares a result without a leader to elect, a membership to maintain, or anyone to strand.
 
 ## Issue #1 distance-envelope matrix
 

@@ -1,10 +1,7 @@
 # SPIKE-004 — Crawler combat profiles
 
 Status: v0.0.36 mixed-crowd pass. The v0.0.37 sitting alert retry has since been
-confirmed: later runs recorded the stomp-to-bite transition and a completed get-up,
-with the first-versus-second stomp timing tracked as
-[#9](https://github.com/jonathanjacobs/pz-zombie-factions/issues/9). The isolated
-posture matrix and two-client ownership remain open.
+confirmed: later runs recorded the stomp-to-bite transition and a completed get-up, with the first-versus-second stomp timing tracked as [#9](https://github.com/jonathanjacobs/pz-zombie-factions/issues/9). The isolated posture matrix and two-client ownership remain open.
 Target: Project Zomboid Build 42.20.x
 Implementation: v0.0.36-v0.0.37
 
