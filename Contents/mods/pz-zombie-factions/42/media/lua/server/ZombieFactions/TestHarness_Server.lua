@@ -111,7 +111,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.56 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.57 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -156,6 +156,22 @@ local function zombieMobSize()
     return value
 end
 
+-- Both defined here rather than beside the other helpers below, for the same scoping
+-- reason as zombieMobSize above: the summary reads them.
+local function onlinePlayerCount()
+    local ok, players = pcall(function() return getOnlinePlayers() end)
+    if not ok or not players then return -1 end
+    local okSize, size = pcall(function() return players:size() end)
+    return okSize and tonumber(size) or -1
+end
+
+local function loadedZombieCount()
+    local ok, zombies = pcall(function() return getCell():getZombieList() end)
+    if not ok or not zombies then return -1 end
+    local okSize, size = pcall(function() return zombies:size() end)
+    return okSize and tonumber(size) or -1
+end
+
 local function printPerformanceSummary()
     local pendingCount = #ZombieFactions.PendingTargetProbes
     local activeCount = #ZombieFactions.ActiveTargetProbes
@@ -168,11 +184,25 @@ local function printPerformanceSummary()
     end
     local dormantCount = math.max(0, mobMembers - activeCount - pendingCount - wakeCount)
     if pendingCount == 0 and activeCount == 0 and mobCount == 0 then
+        -- A heartbeat rather than silence. With nothing enrolled this printed nothing
+        -- at all, which made "the tick has stopped" and "the tick is running with
+        -- nothing to do" indistinguishable in a log. That ambiguity is exactly what
+        -- blocked the disconnect analysis: after a client left, the harness went quiet
+        -- for two and a half minutes across a reconnect, and the log could not say
+        -- which of the two it was. `loadedZombies` additionally shows whether the
+        -- zombies themselves are still present or have been virtualised away.
+        alwaysPrint(string.format(
+            "[ZombieFactions][SERVER_PERF] phase=idle passes=%d players=%d loadedZombies=%d pending=0 active=0 directAcquisition=%s",
+            performanceValue("tickPasses"),
+            onlinePlayerCount(),
+            loadedZombieCount(),
+            tostring(directAcquisition)
+        ))
         performanceCounters = {}
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d grantDeclines=%d retaliationRecruitsRefused=%d identityChangeRecovered=%d identityChangeDropped=%d",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d grantDeclines=%d retaliationRecruitsRefused=%d identityChangeRecovered=%d identityChangeDropped=%d tickPasses=%d players=%d loadedZombies=%d",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -224,7 +254,10 @@ local function printPerformanceSummary()
         performanceValue("grantDeclines"),
         performanceValue("retaliationRecruitsRefused"),
         performanceValue("identityChangeRecovered"),
-        performanceValue("identityChangeDropped")
+        performanceValue("identityChangeDropped"),
+        performanceValue("tickPasses"),
+        onlinePlayerCount(),
+        loadedZombieCount()
     ))
     performanceCounters = {}
 end
@@ -2385,6 +2418,7 @@ local function onTick()
     -- across a summary window and the count of passes that were individually
     -- expensive enough to register at all. Both grow with real load.
     local passStartMs = getTimestampMs()
+    countPerformance("tickPasses")
     performanceSummaryCountdown = performanceSummaryCountdown - 1
     if performanceSummaryCountdown <= 0 then
         performanceSummaryCountdown = PERFORMANCE_SUMMARY_TICKS

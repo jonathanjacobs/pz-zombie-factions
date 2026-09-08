@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.57 — 2026-09-08
+
+Diagnostics only. Replaces the server summary's silence with a heartbeat, so an idle server can be told apart from a stopped one.
+
+- the summary suppressed itself entirely when nothing was pending, active or in a mob. A disconnect test then produced two and a half minutes of complete silence across a reconnect, and the log could not distinguish "the tick has stopped" from "the tick is running with nothing to do" — which blocked the analysis;
+- an idle pass now prints `phase=idle` with the tick count since the last summary, the connected player count, and the number of zombies the cell still holds. The last of those also shows whether zombies are still present or have been virtualised away while the server was empty;
+- `tickPasses`, `players` and `loadedZombies` are added to the ordinary summary as well, so the pass rate is visible under load rather than only when idle.
+
 ## 0.0.56 — 2026-09-08
 
 Adds a guard and a measurement around the identity-change release path in [#11](https://github.com/jonathanjacobs/pz-zombie-factions/issues/11). This was written as a fix on evidence that turned out to be wrong; the defect it was meant to address does not reproduce.
