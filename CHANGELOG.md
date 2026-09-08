@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.53 — 2026-09-07
+
+Instruments the Horde Spawner click path for [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5). Diagnostics only; no behavior change.
+
+- the first log line a spawn produced was written inside the button callback, so every earlier failure was indistinguishable from a click that was never made. A press that reaches the panel, a press the button itself receives, entry into the spawn callback, and which of its two routes was taken are now each recorded separately;
+- these lines use the ordinary print rather than the verbose diagnostic channel, because a session produces tens of presses rather than thousands and the reported failures occur in sessions run with verbose diagnostics off;
+- the panel-level probe reports whether the press landed inside a harness button's rectangle, along with the window position and height. `ISSpawnHordeUI` defines no `onMouseDown` of its own and inherits the `ISCollapsableWindow` one, which begins a window drag for any press that misses a child. Since the panel is created with `moveWithMouse`, a press that misses a 22-pixel-tall button moves the window, leaving the button somewhere else for the next attempt;
+- the v0.0.52 posture session recorded 46 button callbacks against 46 server receipts, each delivering exactly the requested count. That measures only the segment after the callback is entered and says nothing about clicks lost before it, so it is not evidence against the reported behavior.
+
 ## 0.0.52 — 2026-09-07
 
 Direct acquisition becomes the default, replacing mob-and-leader targeting ([ADR-002](docs/adr/ADR-002-direct-acquisition.md)).

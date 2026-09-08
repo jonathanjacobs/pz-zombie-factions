@@ -110,7 +110,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.52 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.53 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))

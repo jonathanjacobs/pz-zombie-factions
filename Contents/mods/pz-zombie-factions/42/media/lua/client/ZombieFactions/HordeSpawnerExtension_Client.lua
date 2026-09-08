@@ -10,8 +10,9 @@ local SPEED = ZombieFactions.SpeedType
 
 local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
+local originalOnMouseDown = ISSpawnHordeUI.onMouseDown
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.52")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.53")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -22,6 +23,46 @@ end
 local function selectedData(combo)
     local option = combo and combo.options and combo.options[combo.selected]
     return option and option.data or nil
+end
+
+-- Click instrumentation for #5. Reported lost clicks cannot currently be told
+-- apart from clicks that arrive and are then discarded, because the first log
+-- line of a spawn is written inside the button callback: anything that fails
+-- earlier leaves no trace at all. These probes are deliberately on the real
+-- global print rather than the verbose channel, since a test session produces
+-- tens of presses rather than thousands, and the failure only shows up in
+-- sessions where verbose diagnostics are off.
+local HARNESS_BUTTONS = {
+    "zfRemoveZombiesButton",
+    "zfRemoveBodiesButton",
+    "zfSpawnButton",
+    "zfCloseButton",
+}
+
+local function harnessButtonUnder(self, x, y)
+    for i = 1, #HARNESS_BUTTONS do
+        local button = self[HARNESS_BUTTONS[i]]
+        if button then
+            local bx, by = button:getX(), button:getY()
+            if x >= bx and x < bx + button:getWidth()
+                and y >= by and y < by + button:getHeight()
+            then
+                return button.zfName or HARNESS_BUTTONS[i], button
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function onHarnessButtonPressed(self, button, x, y)
+    print(string.format(
+        "[ZombieFactions][UI] button-press name=%s localX=%d localY=%d enabled=%s visible=%s",
+        tostring(button and button.zfName or "unknown"),
+        math.floor(x or -1),
+        math.floor(y or -1),
+        tostring(button and button.enable),
+        tostring(button and button:getIsVisible())
+    ))
 end
 
 local function addHarnessBottomButtons(self, spacing, buttonHeight)
@@ -51,8 +92,9 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
     self.zfRemoveZombiesButton = ISButton:new(
         x, upperY, buttonWidth, buttonHeight,
         getText("IGUI_SpawnHorde_RemoveZombies"),
-        self, ISSpawnHordeUI.onRemoveZombies
+        self, ISSpawnHordeUI.onRemoveZombies, onHarnessButtonPressed
     )
+    self.zfRemoveZombiesButton.zfName = "remove-zombies"
     self.zfRemoveZombiesButton:initialise()
     self.zfRemoveZombiesButton:instantiate()
     self.zfRemoveZombiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
@@ -62,8 +104,9 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
     self.zfRemoveBodiesButton = ISButton:new(
         rightX, upperY, buttonWidth, buttonHeight,
         getText("IGUI_SpawnHorde_RemoveBodies"),
-        self, ISSpawnHordeUI.onRemoveBodies
+        self, ISSpawnHordeUI.onRemoveBodies, onHarnessButtonPressed
     )
+    self.zfRemoveBodiesButton.zfName = "remove-bodies"
     self.zfRemoveBodiesButton:initialise()
     self.zfRemoveBodiesButton:instantiate()
     self.zfRemoveBodiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
@@ -72,8 +115,9 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
     self.zfSpawnButton = ISButton:new(
         x, bottomY, buttonWidth, buttonHeight,
         getText("IGUI_StashDebug_Spawn"),
-        self, ISSpawnHordeUI.onSpawn, nil, true
+        self, ISSpawnHordeUI.onSpawn, onHarnessButtonPressed, true
     )
+    self.zfSpawnButton.zfName = "spawn"
     self.zfSpawnButton:initialise()
     self.zfSpawnButton:instantiate()
     self.zfSpawnButton.borderColor = {r=1, g=1, b=1, a=0.1}
@@ -82,8 +126,9 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
     self.zfCloseButton = ISButton:new(
         rightX, bottomY, buttonWidth, buttonHeight,
         getText("IGUI_DebugMenu_Close"),
-        self, ISSpawnHordeUI.close
+        self, ISSpawnHordeUI.close, onHarnessButtonPressed
     )
+    self.zfCloseButton.zfName = "close"
     self.zfCloseButton:initialise()
     self.zfCloseButton:instantiate()
     self.zfCloseButton:enableCancelColor()
@@ -171,6 +216,27 @@ function ISSpawnHordeUI:createChildren()
     addHarnessBottomButtons(self, spacing, rowHeight)
 end
 
+-- The panel inherits ISCollapsableWindow:onMouseDown, which begins a window
+-- drag whenever a press lands on the window body instead of on a child. With
+-- moveWithMouse set, a press that misses a 22-pixel-tall button by a pixel
+-- therefore moves the whole panel, and the button is no longer under the
+-- cursor for the next attempt. Log every press that reaches the panel so a
+-- near-miss can be told apart from a press the button received and dropped.
+function ISSpawnHordeUI:onMouseDown(x, y)
+    local name = harnessButtonUnder(self, x, y)
+    print(string.format(
+        "[ZombieFactions][UI] panel-press localX=%d localY=%d overButton=%s windowX=%d windowY=%d windowHeight=%d moving=%s",
+        math.floor(x or -1),
+        math.floor(y or -1),
+        tostring(name),
+        math.floor(self:getX()),
+        math.floor(self:getY()),
+        math.floor(self:getHeight()),
+        tostring(self.moving == true)
+    ))
+    return originalOnMouseDown(self, x, y)
+end
+
 local function buildFactionSpawnArgs(self, factionId)
     local femaleChance = nil
     local outfit = self:getOutfit()
@@ -213,6 +279,19 @@ function ISSpawnHordeUI:onSpawn()
     local factionId = selectedData(self.zfFaction) or VANILLA
     local spawnSpeed = selectedData(self.zfSpeed) or SPEED.SANDBOX
 
+    -- Entry is logged before any branch. A press that reaches the button but
+    -- produces no spawn receipt is then distinguishable from one that never
+    -- arrived, and the vanilla passthrough below stops looking like a lost
+    -- click when it is really a panel left on Vanilla with no probe ticked.
+    print(string.format(
+        "[ZombieFactions][UI] spawn-callback faction=%s speed=%s probe=%s count=%s radius=%s",
+        tostring(factionId),
+        tostring(spawnSpeed),
+        tostring(self.zfTargetProbe.selected[1] == true),
+        tostring(self:getZombiesNumber()),
+        tostring(self:getRadius())
+    ))
+
     -- Vanilla spawning is preserved only when nothing on this panel asks for
     -- harness behavior. An explicit speed selection needs the harness too,
     -- because the vanilla route creates zombies asynchronously and gives us no
@@ -221,6 +300,7 @@ function ISSpawnHordeUI:onSpawn()
         and spawnSpeed == SPEED.SANDBOX
         and self.zfTargetProbe.selected[1] ~= true
     then
+        print("[ZombieFactions][UI] spawn-callback route=vanilla-passthrough")
         return originalOnSpawn(self)
     end
 
@@ -235,6 +315,7 @@ function ISSpawnHordeUI:onSpawn()
         return
     end
 
+    print("[ZombieFactions][UI] spawn-callback route=harness")
     sendClientCommand(player, MODULE, "SpawnTestHorde", buildFactionSpawnArgs(self, factionId))
 end
 
