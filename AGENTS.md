@@ -29,6 +29,7 @@
 - Do not copy or redistribute Project Zomboid assets, decompiled code, or third-party mod material without documented rights.
 - Follow [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md) for engineering and release controls.
 - Keep diagnostics bounded and evidence-focused; do not claim release readiness, compatibility, or performance beyond recorded validation.
+- Never hard-wrap markdown paragraphs. Write each paragraph as one unwrapped line and let the renderer wrap it. This applies to repository documents, GitHub issue bodies, issue comments, and pull request descriptions. GitHub renders issue and comment bodies with hard line breaks enabled, so a newline inside a paragraph becomes a literal `<br>` and the text renders with a forced break on every line when the window is resized. Fenced code blocks keep their own line structure, and table rows stay on one line as they already do in [`docs/VALIDATION_HISTORY.md`](docs/VALIDATION_HISTORY.md).
 
 ## Verification expectations
 
