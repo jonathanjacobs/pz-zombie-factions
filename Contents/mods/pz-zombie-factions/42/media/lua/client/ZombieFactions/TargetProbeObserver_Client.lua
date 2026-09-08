@@ -36,18 +36,18 @@ local TRAVEL_SAMPLE_MAX_GAP_SECONDS = 0.5
 local TRAVEL_PRUNE_INTERVAL_PASSES = 50
 -- Sprint is dropped this far out so the last stretch is walked.
 --
--- The v0.0.42 run validated the approach at 2.50: melee authorisation began
+-- The v0.0.42 run validated the approach at 2.50: melee authorization began
 -- happening at an average pair distance of 0.51-0.54 tiles, comfortably inside
 -- the commitment band the pair had previously been skipping straight past.
 -- Because the brake fires on the first pass at or inside this distance and a
 -- converging pair closes ~0.68 tiles per pass, the observed brake landed at
 -- 2.08-2.33 rather than at the constant itself. Shortened to 2.00 on operator
--- judgement that the deceleration runway looked longer than it needed to be.
+-- judgment that the deceleration runway looked longer than it needed to be.
 --
--- The v0.0.43 run at 2.00 measured the brake landing at 1.66, melee authorisation
+-- The v0.0.43 run at 2.00 measured the brake landing at 1.66, melee authorization
 -- at 0.50, and zero overshoots, so braking is working. Shortened again to 1.75 on
--- the same judgement, which should put the observed brake near 1.4. Note that
--- authorisation is already arriving at the bottom of the 0.50-0.65 commitment
+-- the same judgment, which should put the observed brake near 1.4. Note that
+-- authorization is already arriving at the bottom of the 0.50-0.65 commitment
 -- band, so there is less headroom left than the clean counters suggest: if
 -- sprintMeleeAuths falls or sprintOvershoots rises, this has gone too far.
 local SPRINT_BRAKE_DISTANCE = 1.75
@@ -1034,7 +1034,7 @@ local function updateTargetRecord(record, stepTicks)
             CombatController.increment("meleeCommitments")
             -- This approach converged, so the pair no longer carries a retry penalty.
             clearApproachRetries(record.subjectId)
-            -- Distance at the first authorisation of each engagement. If braking
+            -- Distance at the first authorization of each engagement. If braking
             -- works this should sit inside the commitment band rather than the
             -- pair skipping past it.
             if record.sprintEligible then

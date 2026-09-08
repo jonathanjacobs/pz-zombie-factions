@@ -95,7 +95,7 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
         self, ISSpawnHordeUI.onRemoveZombies, onHarnessButtonPressed
     )
     self.zfRemoveZombiesButton.zfName = "remove-zombies"
-    self.zfRemoveZombiesButton:initialise()
+    self.zfRemoveZombiesButton:initialize()
     self.zfRemoveZombiesButton:instantiate()
     self.zfRemoveZombiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
     self.zfRemoveZombiesButton:setTooltip("Tip: Hold down Shift to remove all loaded zombies.")
@@ -107,7 +107,7 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
         self, ISSpawnHordeUI.onRemoveBodies, onHarnessButtonPressed
     )
     self.zfRemoveBodiesButton.zfName = "remove-bodies"
-    self.zfRemoveBodiesButton:initialise()
+    self.zfRemoveBodiesButton:initialize()
     self.zfRemoveBodiesButton:instantiate()
     self.zfRemoveBodiesButton.borderColor = {r=1, g=1, b=1, a=0.1}
     self:addChild(self.zfRemoveBodiesButton)
@@ -118,7 +118,7 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
         self, ISSpawnHordeUI.onSpawn, onHarnessButtonPressed, true
     )
     self.zfSpawnButton.zfName = "spawn"
-    self.zfSpawnButton:initialise()
+    self.zfSpawnButton:initialize()
     self.zfSpawnButton:instantiate()
     self.zfSpawnButton.borderColor = {r=1, g=1, b=1, a=0.1}
     self:addChild(self.zfSpawnButton)
@@ -129,7 +129,7 @@ local function addHarnessBottomButtons(self, spacing, buttonHeight)
         self, ISSpawnHordeUI.close, onHarnessButtonPressed
     )
     self.zfCloseButton.zfName = "close"
-    self.zfCloseButton:initialise()
+    self.zfCloseButton:initialize()
     self.zfCloseButton:instantiate()
     self.zfCloseButton:enableCancelColor()
     self:addChild(self.zfCloseButton)
@@ -162,7 +162,7 @@ function ISSpawnHordeUI:createChildren()
     self:addChild(self.zfFactionLabel)
 
     self.zfFaction = ISComboBox:new(self.zfFactionLabel:getRight() + spacing, y, 180, rowHeight)
-    self.zfFaction:initialise()
+    self.zfFaction:initialize()
     self:addChild(self.zfFaction)
     self.zfFaction:addOptionWithData("Vanilla (zf:vanilla)", VANILLA)
     self.zfFaction:addOptionWithData("Test Red (zf:test-red)", TEST_RED)
@@ -173,7 +173,7 @@ function ISSpawnHordeUI:createChildren()
     self:addChild(self.zfSpeedLabel)
 
     self.zfSpeed = ISComboBox:new(self.zfSpeedLabel:getRight() + spacing, y, 180, rowHeight)
-    self.zfSpeed:initialise()
+    self.zfSpeed:initialize()
     self:addChild(self.zfSpeed)
     self.zfSpeed:addOptionWithData("Use sandbox speed", SPEED.SANDBOX)
     self.zfSpeed:addOptionWithData("1 - Sprinter", SPEED.SPRINTER)
@@ -186,7 +186,7 @@ function ISSpawnHordeUI:createChildren()
     self:addChild(self.zfToVanillaLabel)
 
     self.zfToVanilla = ISComboBox:new(self.zfToVanillaLabel:getRight() + spacing, y, 140, rowHeight)
-    self.zfToVanilla:initialise()
+    self.zfToVanilla:initialize()
     self:addChild(self.zfToVanilla)
     addRelationshipOptions(self.zfToVanilla)
 
@@ -195,20 +195,20 @@ function ISSpawnHordeUI:createChildren()
     self:addChild(self.zfFromVanillaLabel)
 
     self.zfFromVanilla = ISComboBox:new(self.zfFromVanillaLabel:getRight() + spacing, y, 140, rowHeight)
-    self.zfFromVanilla:initialise()
+    self.zfFromVanilla:initialize()
     self:addChild(self.zfFromVanilla)
     addRelationshipOptions(self.zfFromVanilla)
 
     y = y + rowHeight + spacing
     self.zfSymmetric = ISTickBox:new(x, y, 330, rowHeight, "", self, nil)
-    self.zfSymmetric:initialise()
+    self.zfSymmetric:initialize()
     self:addChild(self.zfSymmetric)
     self.zfSymmetric:addOption("Symmetric: mirror first relationship both ways")
     self.zfSymmetric.selected[1] = true
 
     y = y + rowHeight + spacing
     self.zfTargetProbe = ISTickBox:new(x, y, 340, rowHeight, "", self, nil)
-    self.zfTargetProbe:initialise()
+    self.zfTargetProbe:initialize()
     self:addChild(self.zfTargetProbe)
     self.zfTargetProbe:addOption("SPIKE: test bounded faction acquisition/reacquisition")
     self.zfTargetProbe.selected[1] = false

@@ -5,7 +5,7 @@
 Diagnostics only. Replaces the server summary's silence with a heartbeat, so an idle server can be told apart from a stopped one.
 
 - the summary suppressed itself entirely when nothing was pending, active or in a mob. A disconnect test then produced two and a half minutes of complete silence across a reconnect, and the log could not distinguish "the tick has stopped" from "the tick is running with nothing to do" — which blocked the analysis;
-- an idle pass now prints `phase=idle` with the tick count since the last summary, the connected player count, and the number of zombies the cell still holds. The last of those also shows whether zombies are still present or have been virtualised away while the server was empty;
+- an idle pass now prints `phase=idle` with the tick count since the last summary, the connected player count, and the number of zombies the cell still holds. The last of those also shows whether zombies are still present or have been virtualized away while the server was empty;
 - `tickPasses`, `players` and `loadedZombies` are added to the ordinary summary as well, so the pass rate is visible under load rather than only when idle.
 
 ## 0.0.56 — 2026-09-08
@@ -36,9 +36,9 @@ Fixes two defects found by the v0.0.53 relationship and posture runs.
 - [#14](https://github.com/jonathanjacobs/pz-zombie-factions/issues/14): a grant the owner client could not resolve was dropped silently. The probe stayed in `ActiveTargetProbes`, so the subject counted as engaged and was never requeued, and one transient resolution failure removed that zombie from the run permanently. In the posture test all four crawlers lost their only grant this way and never attacked once. The client now declines the grant, and the server retires the probe and requeues the subject through the ordinary path;
 - the resolve window rises from 90 ticks to 300. Grants are issued within a second or two of a spawn, so the old window of roughly 1.5 seconds overlapped the period when a newly created zombie was still reaching the client. The decline makes a timeout recoverable; the longer window makes it rarer;
 - `pendingGrants` and `grantResolveTimeouts` join the client summary and `grantDeclines` the server summary, all on the always-on channel, so this is visible without verbose diagnostics. A client holding only unresolved grants now prints a summary rather than staying silent;
-- [#17](https://github.com/jonathanjacobs/pz-zombie-factions/issues/17): `NEUTRAL` retaliation formed records, refreshed their timers and expired them cleanly while never recruiting anyone. Recruitment required a candidate to hold no probe at all, but a zombie whose faction may attack nothing nearby never finds a candidate, retries forever and so always holds a pending one — which is exactly the population retaliation exists to mobilise. Eligibility now tests for an active grant, which is what "already fighting" actually means, and the fruitless pending probe is replaced by the pinned one;
+- [#17](https://github.com/jonathanjacobs/pz-zombie-factions/issues/17): `NEUTRAL` retaliation formed records, refreshed their timers and expired them cleanly while never recruiting anyone. Recruitment required a candidate to hold no probe at all, but a zombie whose faction may attack nothing nearby never finds a candidate, retries forever and so always holds a pending one — which is exactly the population retaliation exists to mobilize. Eligibility now tests for an active grant, which is what "already fighting" actually means, and the fruitless pending probe is replaced by the pinned one;
 - retaliation no longer caps membership at `ZombieMobSize` under direct acquisition, where there are no mobs and the option is documented as ignored. At the default of 1 it had limited recruitment to a single zombie regardless;
-- membership is claimed only once the pinned queue accepts, since membership is what authorizes the `NEUTRAL` pair. `retaliationRecruitsRefused` reports neighbours skipped for holding a live grant, which is the intended protection rather than a failure;
+- membership is claimed only once the pinned queue accepts, since membership is what authorizes the `NEUTRAL` pair. `retaliationRecruitsRefused` reports neighbors skipped for holding a live grant, which is the intended protection rather than a failure;
 - the Horde Spawner probe records the posture tick boxes. Without them a posture run could not be reconstructed afterwards and which side was crawling had to be inferred from which side produced stomps.
 
 ## 0.0.53 — 2026-09-07
@@ -115,7 +115,7 @@ Adds the measurements needed to decide whether the mob and leader layer is still
 Unvalidated `NEUTRAL` retaliation. Previously `NEUTRAL` rejected targeting outright in every case, so the framework offered three relationship types and delivered two: nothing ever fought back.
 
 - a `NEUTRAL` zombie that takes server-validated damage now authorizes same-faction zombies within a configurable radius to answer that **one attacker**, for a bounded time. Hostility never extends to the attacker's faction or to its mob, so a single incident cannot escalate into a war and the directional relationship itself is unchanged;
-- recruits must not already hold a target or a pending probe, so an ongoing fight is never interrupted and no live grant is invalidated. The victim is not special-cased and is recruited only if it is itself free: a victim already fighting someone else keeps that fight and its neighbours answer on its behalf. An engaged victim with no free neighbours therefore produces no retaliation at all;
+- recruits must not already hold a target or a pending probe, so an ongoing fight is never interrupted and no live grant is invalidated. The victim is not special-cased and is recruited only if it is itself free: a victim already fighting someone else keeps that fight and its neighbors answer on its behalf. An engaged victim with no free neighbors therefore produces no retaliation at all;
 - membership is capped by `ZombieFactions.ZombieMobSize` unless that is `0`, in which case the radius alone bounds it;
 - retaliating members are pinned to the provoker. Authorization alone was not enough, because ordinary selection is nearest-first with load balancing and is constrained to the mob's current target faction, which would exclude a merely `NEUTRAL` attacker;
 - any further validated hit on a member restarts the timer, so the authorization cannot lapse underneath a sustained fight;
@@ -125,16 +125,16 @@ Unvalidated `NEUTRAL` retaliation. Previously `NEUTRAL` rejected targeting outri
 
 ## 0.0.44 — 2026-09-06
 
-Shortens the sprinter braking runway again on operator judgement.
+Shortens the sprinter braking runway again on operator judgment.
 
-- reduces `SPRINT_BRAKE_DISTANCE` from `2.00` to `1.75`. The v0.0.43 run measured the brake landing at `1.66`, melee authorisation at an average pair distance of `0.50`, and `sprintOvershoots=0` with the corrected counter, so braking is doing its job; the runway still reads as longer than it needs to be in play.
-- authorisation is now arriving at the bottom of the `0.50`–`0.65` commitment band, so there is less headroom than the clean counters suggest. A falling `sprintMeleeAuths` or a rising `sprintOvershoots` in the next run would mean this has gone too far.
+- reduces `SPRINT_BRAKE_DISTANCE` from `2.00` to `1.75`. The v0.0.43 run measured the brake landing at `1.66`, melee authorization at an average pair distance of `0.50`, and `sprintOvershoots=0` with the corrected counter, so braking is doing its job; the runway still reads as longer than it needs to be in play.
+- authorization is now arriving at the bottom of the `0.50`–`0.65` commitment band, so there is less headroom than the clean counters suggest. A falling `sprintMeleeAuths` or a rising `sprintOvershoots` in the next run would mean this has gone too far.
 
 ## 0.0.43 — 2026-09-06
 
 Shortens the validated sprinter braking runway and corrects the overshoot counter.
 
-- reduces `SPRINT_BRAKE_DISTANCE` from `2.50` to `2.00` on operator judgement that the deceleration runway looked longer than it needed to be. The v0.0.42 run validated the mechanism at `2.50`: melee authorisation began occurring at an average pair distance of `0.51`–`0.54` tiles, inside the commitment band the pair had previously skipped past entirely. Because the brake fires on the first pass at or inside the constant and a converging pair closes about `0.68` tiles per pass, the observed brake landed at `2.08`–`2.33` rather than at the constant itself, so `2.00` should put it near `1.3`–`2.0`;
+- reduces `SPRINT_BRAKE_DISTANCE` from `2.50` to `2.00` on operator judgment that the deceleration runway looked longer than it needed to be. The v0.0.42 run validated the mechanism at `2.50`: melee authorization began occurring at an average pair distance of `0.51`–`0.54` tiles, inside the commitment band the pair had previously skipped past entirely. Because the brake fires on the first pass at or inside the constant and a converging pair closes about `0.68` tiles per pass, the observed brake landed at `2.08`–`2.33` rather than at the constant itself, so `2.00` should put it near `1.3`–`2.0`;
 - gates `sprintOvershoots` on sprint being active rather than on the subject merely being a sprinter. The v0.0.42 run recorded ten overshoots in a window holding zero sprint intent, because a braked sprinter still counts as eligible and ordinary jostling at melee range separates a pair routinely. The counter was therefore measuring normal close-quarters movement instead of the high-speed circling it exists to detect.
 
 ## 0.0.42 — 2026-09-06
@@ -146,7 +146,7 @@ Unvalidated sprinter braking for [#10](https://github.com/jonathanjacobs/pz-zomb
 - adds `sprintBrakes`, `sprintBrakeDistanceAvg`, `sprintMeleeAuths`, `sprintMeleeAuthDistanceAvg` and `sprintOvershoots`, so the 2.50 estimate can be tuned from a run rather than from arithmetic, and so overshoot is measured directly;
 - leaves the 24 approach-offset slots unchanged, so that if braking works it is unambiguous which change was responsible.
 
-The measurement behind it: at 10 Hz controller passes a sprinter advances 0.33–0.35 tiles per pass and a converging pair closes 0.66–0.70, while the whole 1.20-to-0.50 engagement band is 0.70 tiles wide and melee authorisation needs a pass observing 0.65 or nearer. A converging pair can cross the band between two passes and never be seen inside the authorising window; a shambler at 0.05 tiles per pass gets roughly fourteen observations inside it.
+The measurement behind it: at 10 Hz controller passes a sprinter advances 0.33–0.35 tiles per pass and a converging pair closes 0.66–0.70, while the whole 1.20-to-0.50 engagement band is 0.70 tiles wide and melee authorization needs a pass observing 0.65 or nearer. A converging pair can cross the band between two passes and never be seen inside the authorizing window; a shambler at 0.05 tiles per pass gets roughly fourteen observations inside it.
 
 ## 0.0.41 — 2026-09-05
 

@@ -22,7 +22,7 @@ Nothing else changes. Server authority over policy, grants, revalidation and let
 
 ## Evidence
 
-A single-session v0.0.51 dedicated-server run, 240 against 240 mutually hostile, in three phases. Phases ran for different numbers of summary windows, so figures below are normalised by work done or are duration-independent.
+A single-session v0.0.51 dedicated-server run, 240 against 240 mutually hostile, in three phases. Phases ran for different numbers of summary windows, so figures below are normalized by work done or are duration-independent.
 
 | | direct | mob size 1 | mob size 8 |
 | --- | --- | --- | --- |

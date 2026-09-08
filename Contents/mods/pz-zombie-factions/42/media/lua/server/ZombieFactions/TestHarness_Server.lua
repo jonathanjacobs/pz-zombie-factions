@@ -190,7 +190,7 @@ local function printPerformanceSummary()
         -- blocked the disconnect analysis: after a client left, the harness went quiet
         -- for two and a half minutes across a reconnect, and the log could not say
         -- which of the two it was. `loadedZombies` additionally shows whether the
-        -- zombies themselves are still present or have been virtualised away.
+        -- zombies themselves are still present or have been virtualized away.
         alwaysPrint(string.format(
             "[ZombieFactions][SERVER_PERF] phase=idle passes=%d players=%d loadedZombies=%d pending=0 active=0 directAcquisition=%s",
             performanceValue("tickPasses"),
@@ -2141,8 +2141,8 @@ end
 -- Recruits must not already hold a target or a pending probe, so an ongoing fight is
 -- never interrupted and no live grant is invalidated. The victim is not special-cased:
 -- it is recruited only if it is itself free. A victim already fighting someone else
--- keeps that fight, and its neighbours answer on its behalf, which also means an
--- engaged victim with no free neighbours produces no retaliation at all.
+-- keeps that fight, and its neighbors answer on its behalf, which also means an
+-- engaged victim with no free neighbors produces no retaliation at all.
 formRetaliation = function(defender, attacker, sourceRecord)
     if not retaliationEnabled() then return false end
 
@@ -2215,7 +2215,7 @@ formRetaliation = function(defender, attacker, sourceRecord)
                     -- any probe excluded every candidate: a zombie whose faction is
                     -- NEUTRAL toward everything nearby finds nothing, retries forever,
                     -- and so always holds a pending probe -- which is exactly the
-                    -- population retaliation exists to mobilise.
+                    -- population retaliation exists to mobilize.
                     if inRange and subjectHasActiveProbe(zombie) then
                         countPerformance("retaliationRecruitsRefused")
                     elseif inRange then
