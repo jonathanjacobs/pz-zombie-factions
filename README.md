@@ -3,7 +3,7 @@
 A Project Zomboid Build 42 framework for zombie-faction identity and directional `FRIENDLY`, `NEUTRAL`, and `HOSTILE` relationships.
 
 - Status: **Research / Pre-Alpha**
-- Current version: **v0.0.53**
+- Current version: **v0.0.54**
 - Target baseline: **Project Zomboid Build 42.20.x**
 
 ## Current state

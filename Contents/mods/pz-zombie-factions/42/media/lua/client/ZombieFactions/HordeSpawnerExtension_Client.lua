@@ -12,7 +12,7 @@ local originalCreateChildren = ISSpawnHordeUI.createChildren
 local originalOnSpawn = ISSpawnHordeUI.onSpawn
 local originalOnMouseDown = ISSpawnHordeUI.onMouseDown
 
-print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.53")
+print("[ZombieFactions] Client Horde Spawner extension loaded v0.0.54")
 
 local function addRelationshipOptions(combo)
     combo:addOptionWithData("FRIENDLY", REL.FRIENDLY)
@@ -283,13 +283,23 @@ function ISSpawnHordeUI:onSpawn()
     -- produces no spawn receipt is then distinguishable from one that never
     -- arrived, and the vanilla passthrough below stops looking like a lost
     -- click when it is really a panel left on Vanilla with no probe ticked.
+    -- Postures are recorded here because the spawn receipt does not carry them, which
+    -- made a posture run impossible to reconstruct afterwards: which side was crawling
+    -- had to be inferred from which side produced stomps.
+    local posture = self.boolOptions and self.boolOptions.selected or {}
     print(string.format(
-        "[ZombieFactions][UI] spawn-callback faction=%s speed=%s probe=%s count=%s radius=%s",
+        "[ZombieFactions][UI] spawn-callback faction=%s speed=%s probe=%s count=%s radius=%s knockedDown=%s crawler=%s fakeDead=%s fallOnFront=%s sitting=%s onFire=%s",
         tostring(factionId),
         tostring(spawnSpeed),
         tostring(self.zfTargetProbe.selected[1] == true),
         tostring(self:getZombiesNumber()),
-        tostring(self:getRadius())
+        tostring(self:getRadius()),
+        tostring(posture[1] == true),
+        tostring(posture[2] == true),
+        tostring(posture[3] == true),
+        tostring(posture[4] == true),
+        tostring(posture[6] == true),
+        tostring(posture[9] == true)
     ))
 
     -- Vanilla spawning is preserved only when nothing on this panel asks for

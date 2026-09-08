@@ -7,6 +7,7 @@ local SPAWN_COMMAND = "SpawnTestHorde"
 local TARGET_PROBE_COMMAND = "TargetProbeInstruction"
 local TARGET_RELEASE_COMMAND = "TargetProbeRelease"
 local TARGET_REACQUIRE_COMMAND = "TargetProbeReacquire"
+local TARGET_DECLINE_COMMAND = "TargetProbeDecline"
 local DAMAGE_PROBE_COMMAND = "TargetProbeAttack"
 local DAMAGE_APPLY_COMMAND = "TargetProbeApplyDamage"
 local DAMAGE_ACK_COMMAND = "TargetProbeDamageAck"
@@ -110,7 +111,7 @@ ZombieFactions.MobWakeupBySubjectId = ZombieFactions.MobWakeupBySubjectId or {}
 
 local alwaysPrint = print
 alwaysPrint(string.format(
-    "[ZombieFactions] Server test harness loaded v0.0.53 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
+    "[ZombieFactions] Server test harness loaded v0.0.54 clientCollisionDistance=%.2f serverValidationDistance=%.2f",
     configuredClientCollisionDistance(),
     configuredServerValidationDistance()
 ))
@@ -171,7 +172,7 @@ local function printPerformanceSummary()
         return
     end
     alwaysPrint(string.format(
-        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d",
+        "[ZombieFactions][SERVER_PERF] clientCollisionDistance=%.2f serverValidationDistance=%.2f mobs=%d mobMembers=%d dormant=%d pendingLeaders=%d pendingWakeups=%d active=%d scans=%d leaderScans=%d memberSelections=%d memberRetargets=%d recruits=%d departures=%d terminations=%d leaderChanges=%d reactiveWakeups=%d sharedAssignments=%d distributedAssignments=%d loadBalancedSelections=%d stuckReacquires=%d grants=%d releases=%d damageRequests=%d damageDispatched=%d damageRejected=%d damageDistanceRejected=%d damageConfigMismatch=%d damageProfileRejected=%d damageAccepted=%d damageDispatchedServerDistanceAvg=%.3f damageDispatchedClientDistanceAvg=%.3f damageDistanceRejectedServerDistanceAvg=%.3f damageDistanceRejectedServerDistanceMax=%.3f damageDistanceRejectedClientDistanceAvg=%.3f retaliationsActive=%d retaliationsFormed=%d retaliationsRefreshed=%d retaliationRecruits=%d retaliationsExpired=%d retaliationPinnedSelections=%d zombieMobSize=%d candidateScans=%d acquisitionMsTotal=%d acquisitionMsMax=%d acquisitionSlowPasses=%d directAcquisition=%s directQueued=%d grantDeclines=%d retaliationRecruitsRefused=%d",
         configuredClientCollisionDistance(),
         configuredServerValidationDistance(),
         mobCount,
@@ -219,7 +220,9 @@ local function printPerformanceSummary()
         performanceValue("acquisitionMsMax"),
         performanceValue("acquisitionSlowPasses"),
         tostring(directAcquisition),
-        performanceValue("directQueued")
+        performanceValue("directQueued"),
+        performanceValue("grantDeclines"),
+        performanceValue("retaliationRecruitsRefused")
     ))
     performanceCounters = {}
 end
@@ -695,6 +698,33 @@ local function pendingProbeForSubjectId(subjectId)
         if record.subjectId == subjectId then return record end
     end
     return nil
+end
+
+-- Holding a grant is a fight in progress; holding a pending probe is only a zombie
+-- still looking for something to fight. Callers that must not interrupt combat should
+-- test this rather than subjectHasProbe, which conflates the two. A zombie whose
+-- faction has nothing it may attack never leaves the pending list, so testing for any
+-- probe at all excludes it permanently.
+local function subjectHasActiveProbe(subject)
+    local subjectId = zombieOnlineId(subject)
+    if subjectId == -1 then return false end
+    for i = 1, #ZombieFactions.ActiveTargetProbes do
+        if ZombieFactions.ActiveTargetProbes[i].subjectId == subjectId then return true end
+    end
+    return false
+end
+
+-- Drops a queued-but-unresolved probe so a higher-priority queue can take its place.
+-- Only touches the pending list; an active grant is never removed this way.
+local function removePendingProbeForSubjectId(subjectId)
+    local removed = 0
+    for i = #ZombieFactions.PendingTargetProbes, 1, -1 do
+        if ZombieFactions.PendingTargetProbes[i].subjectId == subjectId then
+            table.remove(ZombieFactions.PendingTargetProbes, i)
+            removed = removed + 1
+        end
+    end
+    return removed > 0
 end
 
 local function pendingProbeForMobId(mobId)
@@ -2081,7 +2111,12 @@ formRetaliation = function(defender, attacker, sourceRecord)
 
     local factionId = ZombieFactions.getZombieFaction(defender)
     local radius = retaliationRadius()
-    local sizeCap = zombieMobSize()
+    -- Zombie Mob Size bounds mob membership, and direct acquisition has no mobs. Using
+    -- it here capped retaliation at the configured mob size, which at the default of 1
+    -- meant a single recruit at best, and contradicted the option's own tooltip. Under
+    -- direct acquisition the radius alone bounds membership, as it already does when
+    -- the option is 0.
+    local sizeCap = directAcquisition and 0 or zombieMobSize()
 
     local entry = nil
     for i = 1, #ZombieFactions.Retaliations do
@@ -2128,20 +2163,31 @@ formRetaliation = function(defender, attacker, sourceRecord)
                     local zombie = bucket[i]
                     if sizeCap > 0 and entry.memberCount >= sizeCap then break end
                     local zombieId = zombieOnlineId(zombie)
-                    if zombieId ~= -1
+                    local inRange = zombieId ~= -1
                         and not entry.members[zombieId]
                         and not isDead(zombie)
                         and ZombieFactions.getZombieFaction(zombie) == factionId
                         and sameLevel(zombie, defender)
                         and distanceSquared(zombie, defender) <= radius * radius
-                        and not subjectHasProbe(zombie)
-                        and not pendingProbeForSubjectId(zombieId)
-                    then
-                        entry.members[zombieId] = true
-                        entry.memberCount = entry.memberCount + 1
-                        recruited = recruited + 1
+
+                    -- Only a live grant protects a zombie from recruitment. Testing for
+                    -- any probe excluded every candidate: a zombie whose faction is
+                    -- NEUTRAL toward everything nearby finds nothing, retries forever,
+                    -- and so always holds a pending probe -- which is exactly the
+                    -- population retaliation exists to mobilise.
+                    if inRange and subjectHasActiveProbe(zombie) then
+                        countPerformance("retaliationRecruitsRefused")
+                    elseif inRange then
+                        -- The fruitless pending probe would otherwise make the pinned
+                        -- queue below refuse as subject-already-queued.
+                        removePendingProbeForSubjectId(zombieId)
                         -- Pinned: the retaliating group answers the individual that
                         -- provoked it, not whatever happens to be nearest.
+                        --
+                        -- Membership is only claimed once the queue accepts, because it
+                        -- is what authorizes the NEUTRAL pair in serverCanTarget. A
+                        -- member with no probe behind it would hold an authorization it
+                        -- can never act on, having just given up the probe it had.
                         if queueTargetSubject(
                             zombie,
                             entry.runId,
@@ -2152,6 +2198,9 @@ formRetaliation = function(defender, attacker, sourceRecord)
                             nil,
                             attacker
                         ) then
+                            entry.members[zombieId] = true
+                            entry.memberCount = entry.memberCount + 1
+                            recruited = recruited + 1
                             countPerformance("retaliationRecruits")
                         end
                     end
@@ -2729,6 +2778,46 @@ local function handleSpawn(player, args)
     })
 end
 
+-- A grant the owner client could not resolve. Without this the client dropped the
+-- record silently, the probe stayed in ActiveTargetProbes, and the subject was treated
+-- as engaged forever -- so a single transient resolution failure removed that zombie
+-- from the run. Retiring the probe here returns it to the ordinary requeue path.
+local function handleGrantDeclined(player, args)
+    args = args or {}
+    if not player then return end
+    local runId = tostring(args.runId or "")
+    local subjectId = tonumber(args.subjectId)
+    local candidateId = tonumber(args.candidateId)
+    if runId == "" or subjectId == nil or candidateId == nil then return end
+
+    local username = player:getUsername()
+    for i = #ZombieFactions.ActiveTargetProbes, 1, -1 do
+        local record = ZombieFactions.ActiveTargetProbes[i]
+        if record.runId == runId
+            and record.subjectId == subjectId
+            and record.candidateId == candidateId
+        then
+            -- The declining client could not resolve the subject, so its present owner
+            -- cannot be consulted the way handleReacquireRequest does. Authorise on the
+            -- grant instead: only the client the grant was addressed to may decline it.
+            if record.ownerAtGrant ~= username then return end
+            if record.pendingDamage then return end
+            table.remove(ZombieFactions.ActiveTargetProbes, i)
+            countPerformance("grantDeclines")
+            print(string.format(
+                "[ZombieFactions][%s][ACQUISITION_PROBE] phase=grant-declined reason=%s subject=%d candidate=%d owner=%s",
+                runId,
+                tostring(args.reason or "client-resolve-failed"),
+                subjectId,
+                candidateId,
+                tostring(username)
+            ))
+            requeueActiveSubject(record, "client-resolve-failed")
+            return
+        end
+    end
+end
+
 local function onClientCommand(module, command, player, args)
     if module ~= MODULE then return end
     if command == SPAWN_COMMAND then
@@ -2739,6 +2828,8 @@ local function onClientCommand(module, command, player, args)
         handleDamageAck(player, args)
     elseif command == TARGET_REACQUIRE_COMMAND then
         handleReacquireRequest(player, args)
+    elseif command == TARGET_DECLINE_COMMAND then
+        handleGrantDeclined(player, args)
     end
 end
 

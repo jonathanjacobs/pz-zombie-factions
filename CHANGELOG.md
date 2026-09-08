@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.0.54 — 2026-09-07
+
+Fixes two defects found by the v0.0.53 relationship and posture runs.
+
+- [#14](https://github.com/jonathanjacobs/pz-zombie-factions/issues/14): a grant the owner client could not resolve was dropped silently. The probe stayed in `ActiveTargetProbes`, so the subject counted as engaged and was never requeued, and one transient resolution failure removed that zombie from the run permanently. In the posture test all four crawlers lost their only grant this way and never attacked once. The client now declines the grant, and the server retires the probe and requeues the subject through the ordinary path;
+- the resolve window rises from 90 ticks to 300. Grants are issued within a second or two of a spawn, so the old window of roughly 1.5 seconds overlapped the period when a newly created zombie was still reaching the client. The decline makes a timeout recoverable; the longer window makes it rarer;
+- `pendingGrants` and `grantResolveTimeouts` join the client summary and `grantDeclines` the server summary, all on the always-on channel, so this is visible without verbose diagnostics. A client holding only unresolved grants now prints a summary rather than staying silent;
+- [#17](https://github.com/jonathanjacobs/pz-zombie-factions/issues/17): `NEUTRAL` retaliation formed records, refreshed their timers and expired them cleanly while never recruiting anyone. Recruitment required a candidate to hold no probe at all, but a zombie whose faction may attack nothing nearby never finds a candidate, retries forever and so always holds a pending one — which is exactly the population retaliation exists to mobilise. Eligibility now tests for an active grant, which is what "already fighting" actually means, and the fruitless pending probe is replaced by the pinned one;
+- retaliation no longer caps membership at `ZombieMobSize` under direct acquisition, where there are no mobs and the option is documented as ignored. At the default of 1 it had limited recruitment to a single zombie regardless;
+- membership is claimed only once the pinned queue accepts, since membership is what authorizes the `NEUTRAL` pair. `retaliationRecruitsRefused` reports neighbours skipped for holding a live grant, which is the intended protection rather than a failure;
+- the Horde Spawner probe records the posture tick boxes. Without them a posture run could not be reconstructed afterwards and which side was crawling had to be inferred from which side produced stomps.
+
 ## 0.0.53 — 2026-09-07
 
 Instruments the Horde Spawner click path for [#5](https://github.com/jonathanjacobs/pz-zombie-factions/issues/5). Diagnostics only; no behavior change.

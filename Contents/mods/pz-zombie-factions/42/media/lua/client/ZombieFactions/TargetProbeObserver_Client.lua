@@ -6,8 +6,13 @@ local MODULE = "ZombieFactions"
 local GRANT_COMMAND = "TargetProbeInstruction"
 local RELEASE_COMMAND = "TargetProbeRelease"
 local REACQUIRE_COMMAND = "TargetProbeReacquire"
+local DECLINE_COMMAND = "TargetProbeDecline"
 
-local RESOLVE_RETRY_TICKS = 90
+-- Grants are issued within a second or two of a spawn, so this window overlaps the
+-- period when a newly created zombie is still reaching the client. At 90 ticks it
+-- expired in roughly 1.5 seconds and lost grants to ordinary replication delay. The
+-- decline below makes a timeout recoverable; a longer window makes it rarer.
+local RESOLVE_RETRY_TICKS = 300
 local RESOLVE_SCAN_INTERVAL_TICKS = 5
 local PATH_REFRESH_INTERVAL_TICKS = 300
 local PATH_REFRESH_MOVEMENT = 0.75
@@ -50,7 +55,7 @@ local SPRINT_BRAKE_DISTANCE = 1.75
 local pending = {}
 local tracked = {}
 
-print("[ZombieFactions] Client target observer loaded v0.0.53")
+print("[ZombieFactions] Client target observer loaded v0.0.54")
 
 local function print(message)
     CombatController.detail(message)
@@ -1062,6 +1067,19 @@ local function onControllerUpdate(stepTicks)
                     getPlayer() and getPlayer():getUsername() or "none",
                     record.serverOwner
                 ))
+                -- Tell the server we are giving this up. Dropping it silently left the
+                -- probe active on the server, so the subject counted as engaged and was
+                -- never requeued: one transient failure removed that zombie from the run.
+                local player = getPlayer()
+                if player then
+                    sendClientCommand(player, MODULE, DECLINE_COMMAND, {
+                        runId = record.runId,
+                        subjectId = record.subjectId,
+                        candidateId = record.candidateId,
+                        reason = "client-resolve-failed",
+                    })
+                end
+                CombatController.increment("grantResolveTimeouts")
                 table.remove(pending, i)
             end
         end
@@ -1120,6 +1138,10 @@ local function onControllerUpdate(stepTicks)
         for _ in pairs(tracked) do count = count + 1 end
         return count
     end)())
+    -- Reported alongside trackedTargets so a grant stuck between arrival and resolution
+    -- is visible without verbose diagnostics. A server active count that exceeds
+    -- trackedTargets plus pendingGrants is a grant nobody is driving.
+    CombatController.setGauge("pendingGrants", #pending)
 end
 
 Events.OnServerCommand.Add(onServerCommand)
