@@ -1,6 +1,6 @@
 # SPIKE-006 — Faction identity persistence across virtualization, restart, and clients
 
-Status: Core question answered from source study, with a survey of four shipping mods that attempt the same thing. Faction identity stored in zombie `modData` does not survive virtualization, chunk unload, or a server restart for an ordinary zombie. Two routes do survive, and the spike recommends using them as separate tiers: the persistent outfit id for bulk faction membership, which has a shipped precedent, and the reanimated-player save path for a bounded number of individuals, which is untested. No runtime measurement has been taken in this project yet; confirming procedures are recorded at the end. Target: Project Zomboid Build 42.20.x Implementation: none yet, current head v0.0.57
+Status: Core question answered from source study, with a survey of four shipping mods that attempt the same thing. Faction identity stored in zombie `modData` does not survive virtualization, chunk unload, or a server restart for an ordinary zombie. Three routes avoid that, and the spike recommends the first: the persistent outfit id for bulk faction membership, which has a shipped precedent; the reanimated-player save path for a bounded number of individuals, which is untested; and having the mod own the despawn and respawn of its own zombies, which removes the identity problem altogether at the cost of taking on part of population management. No runtime measurement has been taken in this project yet; confirming procedures are recorded at the end. Target: Project Zomboid Build 42.20.x Implementation: none yet, current head v0.0.57
 
 ## Question
 
@@ -116,7 +116,7 @@ Three costs to weigh:
 
 This is the design most people reach for first, and there is no reliable version of it for ordinary zombies. It needs a stable per-zombie key that round-trips through the population store, and the store has six fields that all already mean something. The three candidate keys all fail: `getID()` returns `id = idCount++`, a counter that restarts at zero on every server boot; `getUID()` is built at construction from `UUID.randomUUID()`, is `final`, and is never written to any save; and `getOnlineID()` is the recycled 16-bit handle. The survey below covers two mods that tried this anyway, one of which withdrew its attempt and one of which still carries the defect.
 
-Option F is a bounded exception to this, for a small number of individuals rather than a whole population.
+Options F and G both sidestep this rather than solving it. F uses a different engine save path for a bounded number of individuals, and G avoids needing a key at all by having the mod create the zombies itself.
 
 ### Option D — exempt faction zombies from virtualization
 
@@ -146,6 +146,47 @@ Used alongside Option B this gives two tiers. Bulk faction membership rides on t
 - Whether appearance survives correctly, given that reanimated players normally wear a dead player's clothing rather than a zone-picked outfit.
 - What the practical ceiling is on the number of resident zombies before server cost becomes visible, which is a measurement rather than a source question.
 - Whether the mod's own combat, ownership and target-grant machinery behaves the same for a zombie that never leaves the world.
+
+### Option G — the mod owns the lifecycle of its own zombies
+
+Every option above except F tries to recognize an engine-created zombie as one the mod knew about earlier, and that is what has no reliable answer. This option removes the need to recognize anything. The mod despawns its own faction zombies before the engine virtualizes them, writes down everything it wants to keep, and spawns them again itself when a player returns. The zombie that comes back was created by the mod, so the mod already knows what it is. There is no key and no matching step.
+
+Faction can then be arbitrary per-zombie data of any size, stored anywhere the mod likes, with appearance left entirely to the consumer.
+
+Death needs no special handling. Dead bodies are static moving objects and are saved with the chunk, so a faction zombie that dies becomes an ordinary persistent corpse with its loot, and its record is simply dropped.
+
+#### Storage granularity and trigger are separate decisions
+
+Storage belongs at the population cell, 256 by 256 tiles. That is the granularity `requestSaveCell` already works in, it keeps the file count low, and it avoids the churn of a player crossing a chunk boundary every eight tiles.
+
+The despawn and respawn trigger should be distance from the nearest player rather than a boundary crossing. Crossing a boundary leaves a player standing next to it, so anything stored just inside respawns next to them, and that is true at any granularity. Cell boundaries make it rarer than chunk boundaries and make the burst larger when it happens, because entering a cell would respawn every faction zombie across a 256 by 256 area at once. Distance gives a spawn distance by construction.
+
+The engine works this way itself. `LoadedAreas` builds a box of `chunkGridWidth` chunks around each player, and the population manager virtualizes and realizes against those boxes rather than against cell boundaries.
+
+#### The radius is narrowly constrained
+
+`IsoChunkMap.chunkGridWidth` defaults to 13 and a chunk is 8 by 8 tiles, so the loaded area around a player is about 52 tiles in each direction. It can be reduced to 7 by 7 through debug options, roughly 28 tiles each way, and on a server each player carries their own `onlineChunkGridWidth` taken from the connection range.
+
+That sets both bounds. The mod can only despawn a zombie that is still loaded, so the radius has to sit below 52. It also has to sit well above view distance so nothing appears on screen. Roughly 35 to 45 tiles is what remains at default settings.
+
+The same figures set the sweep rate. With a radius of 40 and unloading at 52 there are twelve tiles of margin, and a player travelling by vehicle covers that quickly, so the sweep has to run every few ticks rather than every second.
+
+#### Four costs
+
+- **There is no chunk-unload event.** `LoadChunk` fires at the end of `IsoChunk` loading and has no counterpart. `OnObjectAboutToBeRemoved` sounds like the right hook and is not, because it fires from `IsoGridSquare` for objects on squares rather than for zombies. The despawn therefore has to be a poll, and if it misses its window the zombie enters the population store as an ordinary zombie. If its record was already written, a reload produces two zombies; if it was not, the faction is gone.
+- **Despawning makes an area look under-populated.** `updateRealZombieCount` reports per-square real counts to the native layer every five seconds, and respawn runs against a cell's desired population. On the settings this project tests with — `RespawnHours` 72, `RespawnUnseenHours` 16, `RespawnMultiplier` 0.1 — the population manager can add ten percent of a cell's target every 72 in-game hours. Despawning faction zombies and later restoring them therefore drifts the population upward. The drift is slow and disappears entirely when zombie respawn is off, but it is structural.
+- **Faction zombies stop migrating.** `RedistributeHours` is 12 in the same settings, so the virtual population redistributes across a cell twice a day and hordes drift while nobody is watching. Zombies pinned to saved coordinates would sit still, which is a visible divergence from vanilla behavior. It may be wanted, since factions holding ground is reasonable, and it should be chosen rather than inherited.
+- **At full population scale this reimplements the population manager.** If most zombies carry a faction, the mod owns the file format, the sharding, the write scheduling and the crash safety for the whole population, in Lua. The native manager exists because that work is expensive. For a bounded subset the cost is proportional to the subset.
+
+#### Against Option B
+
+Option B is a fraction of the code, has no polling race and no population accounting to reconcile, and replicates to clients without any networking, at the cost of the appearance slot. Option G leaves appearance free and allows arbitrary per-zombie state, and pays for it by taking on part of population management.
+
+For an MVP that has to be correct before it is capable, Option B is the safer first build. Option G is the answer when a consumer needs per-zombie state that will not fit in an outfit id.
+
+#### Untested
+
+None of this has been run, and the costs above are derived rather than measured. In particular the poll rate needed to win the race against a vehicle, the real size of the population drift, and the cost of the sweep at large faction populations are all measurements this document cannot supply.
 
 ## Survey of four shipping mods
 
@@ -227,3 +268,5 @@ Option F needs its own checks, and they should come before any design depends on
 5. Check that the mod's own combat, ownership and target-grant machinery behaves the same for a zombie that never leaves the world.
 
 The prediction for the first of those is that the value survives. If it does not, Option F is not available at all and the correction belongs here.
+
+Option G is measurement-heavy and none of it can be settled from source. Three figures decide whether it is practical: the sweep interval needed for a despawn to beat a player travelling by vehicle across the twelve tiles between a 40-tile radius and the 52-tile loaded edge; how far the population actually drifts over several despawn and respawn cycles with zombie respawn left on; and what the sweep costs at faction populations in the hundreds. A fourth check is worth running first and is cheap, which is to confirm that a mod-spawned zombie placed at a saved coordinate arrives where it was put rather than being relocated by the spawn helpers.
