@@ -29,7 +29,8 @@
 - Do not copy or redistribute Project Zomboid assets, decompiled code, or third-party mod material without documented rights.
 - Follow [`docs/PZ_MODDING_POLICY.md`](docs/PZ_MODDING_POLICY.md) for engineering and release controls.
 - Keep diagnostics bounded and evidence-focused; do not claim release readiness, compatibility, or performance beyond recorded validation.
-- Write in American English: `behavior`, `authorize`, `enrollment`, `virtualized`, `neighbor`, `judgment`. This applies to prose, code comments, and identifiers alike, and to issues and pull requests as well as repository documents.
+- Write in American English — `behavior`, `authorize`, `enrollment`, `virtualized`, `neighbor`, `judgment` — in documentation files, code comments, commit messages, and GitHub issues and issue comments.
+- This does not extend to code. Engine API names are spelled as Project Zomboid defines them, and several are British: `initialise()` on `ISUIElement` is the one already relied on here. Never apply a spelling change to source files by blanket search and replace; a sweep that did exactly that renamed ten `:initialise()` call sites and would have thrown on every Horde Spawner open. Correct spelling in prose by hand, and leave identifiers alone.
 - Never hard-wrap markdown paragraphs. Write each paragraph as one unwrapped line and let the renderer wrap it. This applies to repository documents, GitHub issue bodies, issue comments, and pull request descriptions. GitHub renders issue and comment bodies with hard line breaks enabled, so a newline inside a paragraph becomes a literal `<br>` and the text renders with a forced break on every line when the window is resized. Fenced code blocks keep their own line structure, and table rows stay on one line as they already do in [`docs/VALIDATION_HISTORY.md`](docs/VALIDATION_HISTORY.md).
 
 ## Verification expectations
