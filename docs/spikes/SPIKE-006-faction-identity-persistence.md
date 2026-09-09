@@ -1,6 +1,6 @@
 # SPIKE-006 — Faction identity persistence across virtualization, restart, and clients
 
-Status: Core question answered from source study, with a survey of four shipping mods that attempt the same thing. Faction identity stored in zombie `modData` does not survive virtualization, chunk unload, or a server restart. One engine field does survive all three, and there is a shipped precedent for using it. No runtime measurement has been taken in this project yet; a confirming procedure is recorded at the end. Target: Project Zomboid Build 42.20.x Implementation: none yet, current head v0.0.57
+Status: Core question answered from source study, with a survey of four shipping mods that attempt the same thing. Faction identity stored in zombie `modData` does not survive virtualization, chunk unload, or a server restart for an ordinary zombie. Two routes do survive, and the spike recommends using them as separate tiers: the persistent outfit id for bulk faction membership, which has a shipped precedent, and the reanimated-player save path for a bounded number of individuals, which is untested. No runtime measurement has been taken in this project yet; confirming procedures are recorded at the end. Target: Project Zomboid Build 42.20.x Implementation: none yet, current head v0.0.57
 
 ## Question
 
@@ -21,15 +21,19 @@ Per [`../../AGENTS.md`](../../AGENTS.md), no observed runtime outcome is claimed
 
 ## Answer
 
-Identity is lost to virtualization and it is lost to a restart. The two cannot be told apart by testing, because both go through the same 21-byte record described below, and the faction has never been written into that record.
+For an ordinary zombie, identity is lost to virtualization and it is lost to a restart. The two cannot be told apart by testing, because both go through the same 21-byte record described below, and the faction has never been written into that record.
+
+"Ordinary" is doing real work in that sentence. Zombies flagged as reanimated players take a different route through the engine and keep their modData across a save. That route is Option F, and the sections immediately below do not apply to them.
 
 ### Zombies are not saved as objects
 
 `IsoZombie` inherits a save format that does serialize `modData`. `IsoMovingObject.save` writes the `table` field when it is non-empty, and `IsoMovingObject.load` reads it back. That is probably why storing faction in `modData` looked like it would work.
 
-The live code does not use that path for zombies. When a chunk unloads, `IsoChunk.removeFromWorld` walks the square's moving objects and calls `removeFromWorld()` on each one without serializing any of them. Only static moving objects and world objects are written to meta. `IsoZombie.save` remains reachable through the legacy object-factory route, registered as the `"Zombie"` factory under class id `3` in `IsoObject`, but the chunk path does not exercise it.
+The live code does not use that path for ordinary zombies. When a chunk unloads, `IsoChunk.removeFromWorld` walks the square's moving objects and calls `removeFromWorld()` on each one without serializing any of them. Only static moving objects and world objects are written to meta.
 
-### The only zombie persistence is a fixed 21-byte record
+`IsoZombie.save` is used by one system, and it is not the chunk path. `ReanimatedPlayers.saveReanimatedPlayers` calls it on every zombie with `isReanimatedPlayer()` set, writing them to `reanimated.bin`. That route does carry modData. It is described under Option F below, along with why it does not help the general case.
+
+### The persistence for ordinary zombies is a fixed 21-byte record
 
 Just before that teardown, `IsoChunk.removeFromWorld` calls `ZombiePopulationManager.requestSaveCell` for the containing population cell. That takes a snapshot of every live, non-reanimated zombie in the cell and passes it to `writeCellSnapshot`, which writes six values per zombie:
 
@@ -70,7 +74,7 @@ It sends once, to whichever clients are near the zombie at the moment of the cal
 
 In this case the server does still know the faction. The problem is only that a late-arriving client never gets told. Any design that assigns the faction when a zombie materializes fixes this without extra work, because `OnZombieCreate` runs on the client as well and the client assigns it for itself.
 
-## The one field that does survive
+## The one field in that record that does survive
 
 The population record carries `descriptorID`, which is the persistent outfit id. A mod can put its own meaning into that field, because a mod can define the outfits it refers to.
 
@@ -110,15 +114,38 @@ Three costs to weigh:
 
 ### Option C — a durable per-zombie id with a side table
 
-This is the design most people reach for first, and no reliable version of it exists. It needs a stable per-zombie key that round-trips through the population store, and the store has six fields that all already mean something. The survey below covers two mods that tried it, one of which withdrew its attempt and one of which still carries the defect.
+This is the design most people reach for first, and there is no reliable version of it for ordinary zombies. It needs a stable per-zombie key that round-trips through the population store, and the store has six fields that all already mean something. The three candidate keys all fail: `getID()` returns `id = idCount++`, a counter that restarts at zero on every server boot; `getUID()` is built at construction from `UUID.randomUUID()`, is `final`, and is never written to any save; and `getOnlineID()` is the recycled 16-bit handle. The survey below covers two mods that tried this anyway, one of which withdrew its attempt and one of which still carries the defect.
+
+Option F is a bounded exception to this, for a small number of individuals rather than a whole population.
 
 ### Option D — exempt faction zombies from virtualization
 
-`IsoZombie.keepItReal` exists and is honored in `VirtualZombieManager.update`. It is checked only inside the branch that runs when the process is neither a client nor a server, so it does not guard the dedicated-server virtualization path in `ZombiePopulationManager`, and it does nothing across a restart. Recorded here so it is not rediscovered and mistaken for a solution.
+`IsoZombie.keepItReal` exists and is honored in `VirtualZombieManager.update`. It is checked only inside the branch that runs when the process is neither a client nor a server, so it does not guard the dedicated-server virtualization path in `ZombiePopulationManager`, and it does nothing across a restart. Recorded here so it is not rediscovered and mistaken for a solution. Option F does achieve this exemption on a dedicated server, as a side effect rather than as its purpose.
 
 ### Option E — durable class tag plus an explicitly ephemeral override
 
 Whichever of A or B provides the durable layer, add a server-side side table keyed on `onlineId` for state that only means anything while the zombie is real. The retaliation authorization from the `NEUTRAL` work in [#17](https://github.com/jonathanjacobs/pz-zombie-factions/issues/17) is the obvious candidate. Separating the two stops "must persist" and "must be cheap to look up" from being treated as one requirement, which is what put faction identity in `modData` in the first place.
+
+### Option F — per-zombie modData through the reanimated-player path (recommended for a bounded number of individuals)
+
+There is one system in the engine that saves zombies individually and keeps their modData, and it is worth stating plainly because everything above says the opposite about ordinary zombies.
+
+`ReanimatedPlayers.saveReanimatedPlayers` collects every zombie in the cell with `isReanimatedPlayer()` set, calls `zed.save(out)` on each, and writes the result to `reanimated.bin` in the save folder. That call is `IsoZombie.save`, which chains through `IsoGameCharacter.save` to `IsoMovingObject.save`, and the last of those writes the `table` field when it is non-empty. `loadReanimatedPlayers` reconstructs each zombie with `IsoObject.factoryFromFileInput` and calls `zombie.load(in, worldVersion)`, which reads the modData back. It is invoked from `IsoCell` on world save and from `ServerMap` on server save.
+
+The flag is reachable from a mod. `setReanimatedPlayer(boolean)` is public on `IsoZombie`, and the save loop picks up any zombie in the cell's zombie list that has it set, so a zombie does not need to have come from a dead player to travel this route.
+
+What the flag also does is the reason this is not a general answer. `isReanimatedPlayer()` is checked in every place the population manager touches a zombie: the cell snapshot in `requestSaveCell`, the virtualization pass, `clearSquare`, and `VirtualZombieManager.RemoveZombie`, which routes these zombies to `removeReanimatedPlayerFromWorld` instead of the reuse pool. A zombie marked this way is never virtualized and never recycled. It stays a live Java object for as long as the world is loaded.
+
+For a whole faction population that is the wrong trade. Several hundred permanently real zombies is the cost the population manager exists to avoid, and `reanimated.bin` is written and read as a single file with no per-cell sharding. For a bounded set of individuals it is exactly right: a named lieutenant, a boss, or a small squad that has to survive a restart with arbitrary state attached, at a cost that scales with how many of them there are rather than with the population.
+
+Used alongside Option B this gives two tiers. Bulk faction membership rides on the outfit id and virtualizes normally. A small number of individuals carry full modData and stay resident.
+
+**Untested, and it should be tested before anything depends on it.** All of the above is read from the decompiled source, and none of it has been run:
+
+- Whether `setReanimatedPlayer(true)` on an ordinary zombie produces a clean result, or whether other engine code that reads the flag misbehaves when the zombie was never a player. `IsoDeadBody` sets the same flag at its corpse-reanimation path, `getDescriptor().setID(0)` is applied on load, and there is a separate `setReanimatedForGrappleOnly` variant, none of which have been traced for side effects.
+- Whether appearance survives correctly, given that reanimated players normally wear a dead player's clothing rather than a zone-picked outfit.
+- What the practical ceiling is on the number of resident zombies before server cost becomes visible, which is a measurement rather than a source question.
+- Whether the mod's own combat, ownership and target-grant machinery behaves the same for a zombie that never leaves the world.
 
 ## Survey of four shipping mods
 
@@ -136,13 +163,13 @@ Version 1.16.0 removes all of that. Schema 12 clears the recovery entries as uns
 
 What remains is a worn marker item, promoted to a real clothing item in 1.16.0 on the reasoning that worn items are part of the serialized outfit. That reasoning is sound for the routes that run through `IsoZombie.save`, but it does not help across the population store, which never calls it. The only field in the 21-byte record that could carry an outfit is `descriptorID`, and it resolves through `PersistentOutfits`, whose entire save format is 500 longs of shared template seeds with no per-zombie storage of any kind. A marker added to one zombie at runtime has nowhere to go, so it only lasts while that zombie stays loaded, and `resetForReuse` clears it when the object is recycled.
 
-The useful part is the order these were tried in. The author started by using the outfit id, replaced that with position and appearance matching, and then replaced that with accepting the loss whenever the marker is missing. Each replacement does less than the one before it. The source explains why that kept happening, which is that there is no per-zombie storage to build any of it on.
+The useful part is the order these were tried in. The author started by using the outfit id, replaced that with position and appearance matching, and then replaced that with accepting the loss whenever the marker is missing. Each replacement does less than the one before it. The source explains why that kept happening, which is that ordinary zombies have no per-zombie storage to build any of it on.
 
 ### CDDA Zombies — the same defect, still live
 
 CDDA keeps a global registry in `ModData.getOrCreate("CZList")` and resolves a zombie's type by looking it up, keyed on `getOnlineID()` in multiplayer and `getID()` in single player. Per-zombie `modData` is used only to cache a `TextDrawObject` for the floating name label, so the registry is the whole of its persistence.
 
-That key is the recycled 16-bit handle described above. The same defect Special Zombies removed in schema 12 is present here, and it should show up as zombies acquiring types belonging to dead ones after enough churn. It is included in this survey to show what the defect looks like in shipped code, not as a pattern to copy.
+That key is the recycled 16-bit handle described above. The same defect Special Zombies removed in schema 12 is present here, and it should show up as zombies acquiring types belonging to dead ones after enough churn. It is included in this survey to show what the defect looks like in shipped code.
 
 ### Random Zombies — no persistence at all, by design
 
@@ -170,11 +197,13 @@ This is Option B already working in a released mod, which is the main reason Opt
 
 The `modData` write is not wasted work either, because reading a faction has to be cheap and it sits on the hot path in [`TargetPolicy.lua`](../../Contents/mods/pz-zombie-factions/42/media/lua/shared/ZombieFactions/TargetPolicy.lua). What has to change is that a cache miss becomes something the code can resolve rather than a final answer of `zf:vanilla`.
 
-The open question on #19 is answered, and its premise narrows. Continuous enrollment is still wanted for zombies that were never enrolled, but it is no longer the mechanism that repairs a reconnect, because under either recommended option there is nothing to repair.
+The open question on #19 is answered, and its premise narrows. Continuous enrollment is still wanted for zombies that were never enrolled, but it is no longer the mechanism that repairs a reconnect, because under the recommended tiers a zombie arrives already carrying its faction.
 
 The v0.0.56 reconnect observation now has a sufficient explanation on its own. Whether ownership handling contributed as well is still open and worth knowing separately.
 
-There is also a scope consequence that should be decided rather than absorbed. [`ROADMAP.md`](../ROADMAP.md) currently lists territory among the deferred layers and states that it is not a prerequisite for the faction-behavior milestone. Both recommended options pull some form of it forward, because the durable state they depend on is a mapping from place to faction. The minimum version is small, being a set of zones with a faction each and a default for everywhere else, and it is much less than the deferred territory layer implies with capture, contest, and display. It is still more than the milestone currently claims, and the roadmap should be updated to say so if either option is taken.
+Option B does not require territory, which is worth stating because an earlier draft of this document assumed it did. `ZombiesZoneDefinition` is one way to attach faction outfits to places, and it is the route Occult Zombies uses, but it is not the only one. `IsoGameCharacter.dressInPersistentOutfit(String)` is public and takes an outfit name, calling `PersistentOutfits.pickOutfit` to mint the packed id and then `dressInPersistentOutfitID` to store it. A mod can therefore assign a faction outfit to any individual zombie at any point, with no zone table involved. Territory stays where [`ROADMAP.md`](../ROADMAP.md) already has it, among the deferred layers, and becomes a consumer of this mechanism rather than a prerequisite for it.
+
+One trap to record alongside that. `IsoZombie.dressInNamedOutfit(String)` looks like it does the same job and does not. It clears the worn items and visuals and dresses the zombie from the named outfit without setting `persistentOutfitId`, so it changes appearance and stores nothing.
 
 ## Runtime confirmation still outstanding
 
@@ -188,3 +217,13 @@ The source reading is unambiguous, but this project records observed outcomes on
 The prediction is that steps 2, 3 and 4 all resolve to `zf:vanilla` under the current implementation. A result that contradicts any of them invalidates this document, and per [`../../AGENTS.md`](../../AGENTS.md) the run is the stronger evidence.
 
 A second, cheaper check is worth running at the same time if Option B is under consideration: log `getPersistentOutfitID()` and `getOutfitName()` for a known zombie before and after a virtualization round trip, which tests the claim that the outfit index survives without requiring any of the mod's own machinery to be built first.
+
+Option F needs its own checks, and they should come before any design depends on it:
+
+1. Call `setReanimatedPlayer(true)` on an ordinary spawned zombie, write a value into its `modData`, save and restart the server, and confirm the value comes back.
+2. Watch that same zombie for side effects from the flag, particularly its appearance, its behavior on death, and whether the corpse or grapple paths that also read `isReanimatedPlayer` do anything unexpected.
+3. Confirm it is exempt from virtualization by walking away far enough to virtualize its neighbors and checking that it is still present.
+4. Measure server cost with a growing number of resident zombies, to find where the practical ceiling is.
+5. Check that the mod's own combat, ownership and target-grant machinery behaves the same for a zombie that never leaves the world.
+
+The prediction for the first of those is that the value survives. If it does not, Option F is not available at all and the correction belongs here.
